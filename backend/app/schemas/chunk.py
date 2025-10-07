@@ -29,7 +29,8 @@ class ChunkBase(BaseModel):
     content: str = Field(..., min_length=1, description="Chunk content text")
     chunk_index: int = Field(..., ge=0, description="Chunk index in document")
     chunk_type: ChunkType = Field(..., description="Type of chunk")
-    bounding_boxes: Optional[List[BoundingBox]] = Field(None, description="Bounding boxes for chunk position")
+    bounding_boxes: Optional[List[BoundingBox]] = Field(
+        None, description="Bounding boxes for chunk position")
 
 
 class ChunkCreate(ChunkBase):

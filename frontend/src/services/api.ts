@@ -133,21 +133,14 @@ class ApiService {
     async getDocumentChunks(
         documentId: string,
         page: number = 1,
-        pageSize: number = 50
-    ): Promise<PaginatedResponse<Chunk>> {
+        pageSize: number = 1000
+    ): Promise<{ document_id: string; total: number; chunks: Chunk[] }> {
         const skip = (page - 1) * pageSize;
         const response = await this.client.get(`/documents/${documentId}/chunks`, {
             params: { skip, limit: pageSize },
         });
-        // 转换响应格式
-        const backendData = response.data;
-        return {
-            items: backendData.chunks || [],
-            total: backendData.total || 0,
-            page,
-            page_size: pageSize,
-            total_pages: Math.ceil((backendData.total || 0) / pageSize),
-        };
+        // 后端返回: { document_id, total, chunks }
+        return response.data;
     }
 
     // Chat endpoints

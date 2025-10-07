@@ -624,17 +624,17 @@ async def get_current_context(
         if chunk.start_page <= page <= chunk.end_page:
             # Calculate relevance score based on position
             relevance = 1.0
-            
+
             # If coordinates provided, check if chunk overlaps with position
             if x is not None and y is not None and chunk.chunk_metadata:
                 bboxes = chunk.chunk_metadata.get('bounding_boxes', [])
                 for bbox in bboxes:
                     if (bbox.get('page') == page and
                         bbox.get('x0', 0) <= x <= bbox.get('x1', 999) and
-                        bbox.get('y0', 0) <= y <= bbox.get('y1', 999)):
+                            bbox.get('y0', 0) <= y <= bbox.get('y1', 999)):
                         relevance = 2.0  # Higher relevance for position match
                         break
-            
+
             relevant_chunks.append({
                 'chunk_id': str(chunk.id),
                 'chunk_index': chunk.chunk_index,
@@ -647,7 +647,8 @@ async def get_current_context(
             })
 
     # Sort by relevance and page proximity
-    relevant_chunks.sort(key=lambda c: (-c['relevance'], abs(c['start_page'] - page)))
+    relevant_chunks.sort(
+        key=lambda c: (-c['relevance'], abs(c['start_page'] - page)))
 
     # Return top 5 most relevant chunks
     top_chunks = relevant_chunks[:5]
@@ -705,7 +706,8 @@ async def get_chunk_detail(
     if chunk.chunk_metadata and 'bounding_boxes' in chunk.chunk_metadata:
         bboxes = chunk.chunk_metadata['bounding_boxes']
         if isinstance(bboxes, list):
-            bounding_boxes = [BoundingBox(**bbox) if isinstance(bbox, dict) else bbox for bbox in bboxes]
+            bounding_boxes = [BoundingBox(
+                **bbox) if isinstance(bbox, dict) else bbox for bbox in bboxes]
 
     return ChunkResponse(
         id=chunk.id,

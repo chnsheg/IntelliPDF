@@ -52,6 +52,7 @@ export interface Chunk {
     end_page: number;
     token_count: number;
     vector_id?: string;
+    bounding_boxes?: BoundingBox[];  // 分块边界框信息
     chunk_metadata?: Record<string, any>;  // 后端字段名
     created_at: string;
     updated_at: string;
@@ -73,6 +74,12 @@ export interface BoundingBox {
     y0: number;
     x1: number;
     y1: number;
+}
+
+export interface ChunkListResponse {
+    document_id: string;
+    total: number;
+    chunks: Chunk[];
 }
 
 // Chat types

@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FiMessageSquare, FiX } from 'react-icons/fi';
 import { apiService } from '../services/api';
 import { useIsMobile } from '../hooks/useResponsive';
-import PDFViewer from '../components/PDFViewer';
+import PDFViewerEnhanced from '../components/PDFViewerEnhanced';
 import ChatPanel from '../components/ChatPanel';
 import clsx from 'clsx';
 
@@ -16,11 +16,19 @@ export default function DocumentViewerPage() {
     const { id } = useParams<{ id: string }>();
     const isMobile = useIsMobile();
     const [chatOpen, setChatOpen] = useState(!isMobile);
+    const [currentPage, setCurrentPage] = useState(1);
 
     // 获取文档信息 - 后端直接返回文档对象
     const { data: document, isLoading, error } = useQuery({
         queryKey: ['document', id],
         queryFn: () => apiService.getDocument(id!),
+        enabled: !!id,
+    });
+
+    // 获取文档分块数据
+    const { data: chunksData } = useQuery({
+        queryKey: ['document-chunks', id],
+        queryFn: () => apiService.getDocumentChunks(id!),
         enabled: !!id,
     });
 
@@ -80,7 +88,19 @@ export default function DocumentViewerPage() {
                         isMobile && chatOpen && 'hidden'
                     )}
                 >
-                    <PDFViewer fileUrl={fileUrl} documentId={document.id} />
+                    <PDFViewerEnhanced
+                        fileUrl={fileUrl}
+                        documentId={document.id}
+                        chunks={chunksData?.chunks || []}
+                        onPageChange={(page) => {
+                            setCurrentPage(page);
+                            console.log('Current page:', page);
+                        }}
+                        onChunkClick={(chunkId) => {
+                            console.log('Chunk clicked:', chunkId);
+                            // TODO: Highlight chunk or show details in chat panel
+                        }}
+                    />
                 </div>
 
                 {/* Chat Panel */}

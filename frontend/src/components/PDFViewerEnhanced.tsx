@@ -250,7 +250,7 @@ export default function PDFViewerEnhanced({
 
             return pageChunks.map((chunk) => {
                 const boxes = chunk.bounding_boxes?.filter((bbox) => bbox.page === pageNum) || [];
-                
+
                 return boxes.map((bbox, idx) => (
                     <div
                         key={`${chunk.id}-${idx}`}
