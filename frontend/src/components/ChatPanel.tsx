@@ -17,11 +17,13 @@ import { DotsLoader } from './Loading';
 
 interface ChatPanelProps {
     documentId: string;
+    currentPage?: number;
     onClose?: () => void;
 }
 
-export default function ChatPanel({ documentId, onClose }: ChatPanelProps) {
+export default function ChatPanel({ documentId, currentPage = 1, onClose }: ChatPanelProps) {
     const [inputValue, setInputValue] = useState('');
+    const [contextChunks, setContextChunks] = useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { messages, addMessage, setLoading, isLoading } = useChatStore();
 
@@ -34,10 +36,40 @@ export default function ChatPanel({ documentId, onClose }: ChatPanelProps) {
         scrollToBottom();
     }, [messages]);
 
+    // Fetch context when page changes
+    useEffect(() => {
+        const fetchContext = async () => {
+            try {
+                const contextData = await apiService.getCurrentContext(
+                    documentId,
+                    currentPage
+                );
+                const chunkContents = contextData.relevant_chunks.map(
+                    (chunk) => chunk.content
+                );
+                setContextChunks(chunkContents);
+            } catch (error) {
+                console.error('Failed to fetch context:', error);
+                setContextChunks([]);
+            }
+        };
+
+        if (currentPage) {
+            fetchContext();
+        }
+    }, [documentId, currentPage]);
+
     // Chat mutation
     const chatMutation = useMutation({
-        mutationFn: (question: string) =>
-            apiService.chat(documentId, { question }),
+        mutationFn: async (question: string) => {
+            // Prepare question with context if available
+            let enhancedQuestion = question;
+            if (contextChunks.length > 0) {
+                const contextText = contextChunks.slice(0, 2).join('\n\n');
+                enhancedQuestion = `基于以下上下文回答问题:\n\n上下文:\n${contextText}\n\n问题: ${question}`;
+            }
+            return apiService.chat(documentId, { question: enhancedQuestion });
+        },
         onMutate: (question) => {
             // Add user message
             addMessage({

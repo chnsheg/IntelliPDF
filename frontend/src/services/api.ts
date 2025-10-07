@@ -156,6 +156,37 @@ class ApiService {
         return response.data;
     }
 
+    // Get current context based on reading position
+    async getCurrentContext(
+        documentId: string,
+        page: number,
+        x?: number,
+        y?: number
+    ): Promise<{
+        document_id: string;
+        current_page: number;
+        current_position: { x: number; y: number } | null;
+        relevant_chunks: Array<{
+            chunk_id: string;
+            chunk_index: number;
+            content: string;
+            chunk_type: string;
+            start_page: number;
+            end_page: number;
+            relevance: number;
+        }>;
+        total_found: number;
+    }> {
+        const response = await this.client.post(
+            `/documents/${documentId}/current-context`,
+            null,
+            {
+                params: { page, x, y },
+            }
+        );
+        return response.data;
+    }
+
     // Utility methods
     getDocumentUrl(documentId: string): string {
         return `${this.client.defaults.baseURL}/documents/${documentId}/file`;

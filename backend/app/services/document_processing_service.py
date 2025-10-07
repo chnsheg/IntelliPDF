@@ -225,7 +225,7 @@ class DocumentProcessingService:
         strategy: str = "section"
     ) -> List[ChunkModel]:
         """
-        Chunk the document using specified strategy.
+        Chunk the document using specified strategy with position information.
 
         Args:
             structured_text: List of page text data
@@ -234,16 +234,26 @@ class DocumentProcessingService:
             strategy: Chunking strategy
 
         Returns:
-            List of created chunk models
+            List of created chunk models with bounding box information
         """
-        if strategy == "section":
-            chunker = SectionChunker(use_cache=True)
-            chunks_dict = chunker.chunk_by_sections(
-                structured_text,
-                str(pdf_path)
+        # Try to extract text with positions using PyMuPDF
+        try:
+            parser = PDFParser(pdf_path, use_cache=True)
+            page_data_with_positions = parser.extract_text_with_positions()
+            
+            # Use PDFChunker with position information
+            from .pdf.chunking import PDFChunker
+            chunker = PDFChunker(use_cache=True)
+            chunks_dict = chunker.chunk_with_positions(
+                page_data=page_data_with_positions,
+                strategy="hybrid"  # Use hybrid strategy for better results
             )
-        else:
-            # Default to section chunking for now
+            
+            logger.info(f"Created {len(chunks_dict)} chunks with position information")
+            
+        except Exception as e:
+            # Fallback to section chunking without positions
+            logger.warning(f"Failed to extract positions, falling back to section chunking: {e}")
             chunker = SectionChunker(use_cache=True)
             chunks_dict = chunker.chunk_by_sections(
                 structured_text,
@@ -254,22 +264,32 @@ class DocumentProcessingService:
         chunk_models = []
         for chunk_dict in chunks_dict:
             # Extract page information
-            page_numbers = chunk_dict.get("page_numbers", [0])
+            page_numbers = chunk_dict.get("page_numbers", [])
+            if not page_numbers:
+                # Get page from metadata if available
+                metadata = chunk_dict.get("metadata", {})
+                page = metadata.get("page", 0)
+                page_numbers = [page] if page else [0]
+            
             start_page = min(page_numbers) if page_numbers else 0
             end_page = max(page_numbers) if page_numbers else 0
 
+            # Extract bounding boxes from metadata
+            metadata = chunk_dict.get("metadata", {})
+            bounding_boxes = metadata.get("bounding_boxes", [])
+            
             chunk_model = ChunkModel(
                 document_id=document_id,
-                # KEY FIX: section_chunker returns 'text', not 'content'
-                content=chunk_dict["text"],
-                # KEY FIX: correct field name
+                content=chunk_dict.get("text", chunk_dict.get("content", "")),
                 chunk_index=chunk_dict["chunk_index"],
-                chunk_type=ChunkType.TEXT,  # KEY FIX: Use TEXT instead of non-existent SECTION
+                chunk_type=ChunkType.TEXT,
                 start_page=start_page,
                 end_page=end_page,
-                # Rough estimate
-                token_count=len(chunk_dict["text"].split()),
-                chunk_metadata=chunk_dict.get("metadata", {}),
+                token_count=len(chunk_dict.get("text", chunk_dict.get("content", "")).split()),
+                chunk_metadata={
+                    **metadata,
+                    "bounding_boxes": bounding_boxes  # Store bounding boxes in metadata
+                },
             )
             chunk_models.append(chunk_model)
 
@@ -277,6 +297,7 @@ class DocumentProcessingService:
         created_chunks = await self.chunk_repo.create_batch(chunk_models)
         await self.chunk_repo.commit()
 
+        logger.info(f"Saved {len(created_chunks)} chunks to database")
         return created_chunks
 
     async def _generate_and_store_embeddings(

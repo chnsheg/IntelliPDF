@@ -202,6 +202,76 @@ class PDFParser:
             raise PDFProcessingError(
                 f"Failed to extract text with PyMuPDF: {str(e)}")
 
+    def extract_text_with_positions(self, page_numbers: Optional[List[int]] = None) -> Dict[int, Dict[str, Any]]:
+        """
+        使用 PyMuPDF 提取文本及其边界框位置信息
+
+        Args:
+            page_numbers: 要提取的页码列表，None 表示全部页面
+
+        Returns:
+            页码到包含text和blocks的字典映射
+            blocks格式: [{"text": str, "bbox": {"x0": float, "y0": float, "x1": float, "y1": float}}]
+        """
+        try:
+            data_by_page = {}
+
+            doc = fitz.open(self.pdf_path)
+            total_pages = len(doc)
+            pages_to_extract = page_numbers if page_numbers else range(total_pages)
+
+            for page_num in pages_to_extract:
+                if page_num >= total_pages:
+                    logger.warning(f"Page {page_num} exceeds total pages {total_pages}")
+                    continue
+
+                page = doc[page_num]
+                
+                # 获取结构化文本数据（包含位置信息）
+                text_dict = page.get_text("dict")
+                blocks = []
+                full_text = ""
+
+                # 遍历所有文本块
+                for block in text_dict.get("blocks", []):
+                    if block.get("type") == 0:  # 0表示文本块
+                        block_text = ""
+                        bbox = block.get("bbox", [0, 0, 0, 0])
+                        
+                        # 提取块内所有行的文本
+                        for line in block.get("lines", []):
+                            for span in line.get("spans", []):
+                                span_text = span.get("text", "")
+                                block_text += span_text
+                            block_text += "\n"
+                        
+                        block_text = block_text.strip()
+                        if block_text:
+                            blocks.append({
+                                "text": block_text,
+                                "bbox": {
+                                    "x0": bbox[0],
+                                    "y0": bbox[1],
+                                    "x1": bbox[2],
+                                    "y1": bbox[3]
+                                }
+                            })
+                            full_text += block_text + "\n\n"
+
+                data_by_page[page_num] = {
+                    "text": full_text.strip(),
+                    "blocks": blocks
+                }
+
+            doc.close()
+
+            logger.info(f"Extracted text with positions from {len(data_by_page)} pages")
+            return data_by_page
+
+        except Exception as e:
+            logger.error(f"Error extracting text with positions: {e}")
+            raise PDFProcessingError(f"Failed to extract text with positions: {str(e)}")
+
     def extract_text(
         self,
         engine: str = "pymupdf",

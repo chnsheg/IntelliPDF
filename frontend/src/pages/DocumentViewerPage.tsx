@@ -115,6 +115,7 @@ export default function DocumentViewerPage() {
                     >
                         <ChatPanel
                             documentId={document.id}
+                            currentPage={currentPage}
                             onClose={isMobile ? () => setChatOpen(false) : undefined}
                         />
                     </div>
