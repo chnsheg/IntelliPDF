@@ -5,10 +5,12 @@ from .base import Base
 from .models_simple import (
     DocumentModel,
     ChunkModel,
+    UserModel,
 )
 
 __all__ = [
     "Base",
     "DocumentModel",
     "ChunkModel",
+    "UserModel",
 ]

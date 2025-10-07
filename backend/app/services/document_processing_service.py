@@ -240,7 +240,7 @@ class DocumentProcessingService:
         try:
             parser = PDFParser(pdf_path, use_cache=True)
             page_data_with_positions = parser.extract_text_with_positions()
-            
+
             # Use PDFChunker with position information
             from .pdf.chunking import PDFChunker
             chunker = PDFChunker(use_cache=True)
@@ -248,12 +248,14 @@ class DocumentProcessingService:
                 page_data=page_data_with_positions,
                 strategy="hybrid"  # Use hybrid strategy for better results
             )
-            
-            logger.info(f"Created {len(chunks_dict)} chunks with position information")
-            
+
+            logger.info(
+                f"Created {len(chunks_dict)} chunks with position information")
+
         except Exception as e:
             # Fallback to section chunking without positions
-            logger.warning(f"Failed to extract positions, falling back to section chunking: {e}")
+            logger.warning(
+                f"Failed to extract positions, falling back to section chunking: {e}")
             chunker = SectionChunker(use_cache=True)
             chunks_dict = chunker.chunk_by_sections(
                 structured_text,
@@ -270,14 +272,14 @@ class DocumentProcessingService:
                 metadata = chunk_dict.get("metadata", {})
                 page = metadata.get("page", 0)
                 page_numbers = [page] if page else [0]
-            
+
             start_page = min(page_numbers) if page_numbers else 0
             end_page = max(page_numbers) if page_numbers else 0
 
             # Extract bounding boxes from metadata
             metadata = chunk_dict.get("metadata", {})
             bounding_boxes = metadata.get("bounding_boxes", [])
-            
+
             chunk_model = ChunkModel(
                 document_id=document_id,
                 content=chunk_dict.get("text", chunk_dict.get("content", "")),
@@ -285,7 +287,8 @@ class DocumentProcessingService:
                 chunk_type=ChunkType.TEXT,
                 start_page=start_page,
                 end_page=end_page,
-                token_count=len(chunk_dict.get("text", chunk_dict.get("content", "")).split()),
+                token_count=len(chunk_dict.get(
+                    "text", chunk_dict.get("content", "")).split()),
                 chunk_metadata={
                     **metadata,
                     "bounding_boxes": bounding_boxes  # Store bounding boxes in metadata

@@ -213,5 +213,85 @@ class ChunkModel(Base, TimestampMixin):
         return f"<ChunkModel(id={self.id}, document_id={self.document_id}, index={self.chunk_index})>"
 
 
+class UserModel(Base, TimestampMixin):
+    """User database model for authentication."""
+
+    __tablename__ = "users"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="User unique identifier"
+    )
+
+    # Authentication
+    username: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="Unique username for login"
+    )
+    email: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="User email address"
+    )
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="Bcrypt hashed password"
+    )
+
+    # Profile
+    full_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="User's full name"
+    )
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        index=True,
+        comment="Whether user account is active"
+    )
+    is_superuser: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Whether user has admin privileges"
+    )
+
+    # API Configuration (encrypted)
+    gemini_api_key: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="User's encrypted Gemini API key"
+    )
+
+    # Activity Tracking
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True,
+        comment="Last login timestamp"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_users_active", "is_active"),
+        UniqueConstraint("username", name="uq_users_username"),
+        UniqueConstraint("email", name="uq_users_email"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<UserModel(id={self.id}, username={self.username}, email={self.email})>"
+
+
 # Simplified models - remove complex features not needed initially
 # We can add KnowledgeNode, KnowledgeEdge, Bookmark, ChatSession, ChatMessage later

@@ -427,36 +427,36 @@ class PDFChunker:
     ) -> List[Dict[str, Any]]:
         """
         对包含位置信息的文本进行分块
-        
+
         Args:
             page_data: 页码到{text, blocks}的映射，blocks包含bbox信息
             strategy: 分块策略
-            
+
         Returns:
             分块列表，每个chunk包含bounding_boxes字段
         """
         try:
             all_chunks = []
-            
+
             for page_num, data in page_data.items():
                 text = data.get("text", "")
                 blocks = data.get("blocks", [])
-                
+
                 if not text:
                     continue
-                
+
                 # 使用选定策略进行分块
                 page_chunks = self.smart_chunk(
                     text=text,
                     strategy=strategy,
                     metadata={"page": page_num}
                 )
-                
+
                 # 为每个chunk匹配边界框
                 for chunk in page_chunks:
                     chunk_text = chunk["text"]
                     chunk_bboxes = []
-                    
+
                     # 查找包含此chunk文本的blocks
                     for block in blocks:
                         block_text = block["text"]
@@ -470,22 +470,24 @@ class PDFChunker:
                                 "x1": bbox["x1"],
                                 "y1": bbox["y1"]
                             })
-                    
+
                     # 添加边界框信息到chunk metadata
                     if "metadata" not in chunk:
                         chunk["metadata"] = {}
                     chunk["metadata"]["bounding_boxes"] = chunk_bboxes
                     chunk["metadata"]["page"] = page_num
-                    
+
                     all_chunks.append(chunk)
-            
+
             # 重新编号所有chunks
             for i, chunk in enumerate(all_chunks):
                 chunk["chunk_index"] = i
-            
-            logger.info(f"Created {len(all_chunks)} chunks with position information")
+
+            logger.info(
+                f"Created {len(all_chunks)} chunks with position information")
             return all_chunks
-            
+
         except Exception as e:
             logger.error(f"Error in chunk_with_positions: {e}")
-            raise PDFProcessingError(f"Failed to chunk with positions: {str(e)}")
+            raise PDFProcessingError(
+                f"Failed to chunk with positions: {str(e)}")

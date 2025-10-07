@@ -218,15 +218,17 @@ class PDFParser:
 
             doc = fitz.open(self.pdf_path)
             total_pages = len(doc)
-            pages_to_extract = page_numbers if page_numbers else range(total_pages)
+            pages_to_extract = page_numbers if page_numbers else range(
+                total_pages)
 
             for page_num in pages_to_extract:
                 if page_num >= total_pages:
-                    logger.warning(f"Page {page_num} exceeds total pages {total_pages}")
+                    logger.warning(
+                        f"Page {page_num} exceeds total pages {total_pages}")
                     continue
 
                 page = doc[page_num]
-                
+
                 # 获取结构化文本数据（包含位置信息）
                 text_dict = page.get_text("dict")
                 blocks = []
@@ -237,14 +239,14 @@ class PDFParser:
                     if block.get("type") == 0:  # 0表示文本块
                         block_text = ""
                         bbox = block.get("bbox", [0, 0, 0, 0])
-                        
+
                         # 提取块内所有行的文本
                         for line in block.get("lines", []):
                             for span in line.get("spans", []):
                                 span_text = span.get("text", "")
                                 block_text += span_text
                             block_text += "\n"
-                        
+
                         block_text = block_text.strip()
                         if block_text:
                             blocks.append({
@@ -265,12 +267,14 @@ class PDFParser:
 
             doc.close()
 
-            logger.info(f"Extracted text with positions from {len(data_by_page)} pages")
+            logger.info(
+                f"Extracted text with positions from {len(data_by_page)} pages")
             return data_by_page
 
         except Exception as e:
             logger.error(f"Error extracting text with positions: {e}")
-            raise PDFProcessingError(f"Failed to extract text with positions: {str(e)}")
+            raise PDFProcessingError(
+                f"Failed to extract text with positions: {str(e)}")
 
     def extract_text(
         self,

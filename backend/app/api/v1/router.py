@@ -6,9 +6,12 @@ This module aggregates all v1 endpoint routers.
 
 from fastapi import APIRouter
 
-from .endpoints import documents, health, test, documents_enhanced, knowledge_graph
+from .endpoints import documents, health, test, documents_enhanced, knowledge_graph, auth
 
 api_router = APIRouter()
+
+# Authentication endpoints
+api_router.include_router(auth.router, tags=["auth"])
 
 # Test endpoints
 api_router.include_router(test.router, prefix="/test", tags=["test"])

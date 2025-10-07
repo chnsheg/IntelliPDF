@@ -260,6 +260,75 @@ class ApiService {
         const { data } = await this.client.post(`/knowledge-graph/analyze?document_id=${documentId}`);
         return data;
     }
+
+    // ==================== Authentication APIs ====================
+
+    /**
+     * Register a new user
+     */
+    async register(userData: {
+        username: string;
+        email: string;
+        password: string;
+        full_name?: string;
+    }): Promise<{ access_token: string; token_type: string; user: any }> {
+        const { data } = await this.client.post('/auth/register', userData);
+        
+        // Store token in localStorage
+        if (data.access_token) {
+            localStorage.setItem('auth_token', data.access_token);
+        }
+        
+        return data;
+    }
+
+    /**
+     * Login with username and password
+     */
+    async login(credentials: {
+        username: string;
+        password: string;
+    }): Promise<{ access_token: string; token_type: string; user: any }> {
+        const { data } = await this.client.post('/auth/login', credentials);
+        
+        // Store token in localStorage
+        if (data.access_token) {
+            localStorage.setItem('auth_token', data.access_token);
+        }
+        
+        return data;
+    }
+
+    /**
+     * Logout current user
+     */
+    async logout(): Promise<void> {
+        try {
+            await this.client.post('/auth/logout');
+        } finally {
+            // Always remove token from localStorage
+            localStorage.removeItem('auth_token');
+        }
+    }
+
+    /**
+     * Get current user information
+     */
+    async getCurrentUser(): Promise<any> {
+        const { data } = await this.client.get('/auth/me');
+        return data;
+    }
+
+    /**
+     * Change password
+     */
+    async changePassword(passwordData: {
+        old_password: string;
+        new_password: string;
+    }): Promise<{ message: string; success: boolean }> {
+        const { data } = await this.client.post('/auth/change-password', passwordData);
+        return data;
+    }
 }
 
 export const apiService = new ApiService();
