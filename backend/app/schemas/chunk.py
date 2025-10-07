@@ -13,6 +13,15 @@ from pydantic import BaseModel, Field, ConfigDict
 from ..models.domain.chunk import ChunkType
 
 
+class BoundingBox(BaseModel):
+    """Bounding box for chunk position in PDF."""
+    page: int = Field(..., description="Page number (1-based)")
+    x0: float = Field(..., description="Left coordinate")
+    y0: float = Field(..., description="Top coordinate")
+    x1: float = Field(..., description="Right coordinate")
+    y1: float = Field(..., description="Bottom coordinate")
+
+
 class ChunkBase(BaseModel):
     """
     Base chunk schema with common fields.
@@ -20,6 +29,7 @@ class ChunkBase(BaseModel):
     content: str = Field(..., min_length=1, description="Chunk content text")
     chunk_index: int = Field(..., ge=0, description="Chunk index in document")
     chunk_type: ChunkType = Field(..., description="Type of chunk")
+    bounding_boxes: Optional[List[BoundingBox]] = Field(None, description="Bounding boxes for chunk position")
 
 
 class ChunkCreate(ChunkBase):
@@ -68,6 +78,10 @@ class ChunkResponse(ChunkInDB):
                 "end_page": 3,
                 "token_count": 512,
                 "vector_id": "vec_123abc",
+                "bounding_boxes": [
+                    {"page": 1, "x0": 72, "y0": 100, "x1": 540, "y1": 300},
+                    {"page": 2, "x0": 72, "y0": 100, "x1": 540, "y1": 200}
+                ],
                 "metadata": {
                     "chapter": "第一章",
                     "section": "1.1 简介"

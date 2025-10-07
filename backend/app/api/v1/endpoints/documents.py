@@ -6,7 +6,7 @@ Handles document upload, retrieval, processing, and chat operations.
 
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 
 from fastapi import (
@@ -35,7 +35,7 @@ from ....schemas.document import (
     DocumentListResponse,
     DocumentStatistics,
 )
-from ....schemas.chunk import ChunkResponse, ChunkListResponse
+from ....schemas.chunk import ChunkResponse, ChunkListResponse, BoundingBox
 from ....schemas.chat import ChatRequest, ChatResponse
 from ....schemas.common import StatusResponse
 
@@ -574,4 +574,151 @@ async def get_document_thumbnail(
         path=file_path,
         media_type="application/pdf",
         filename=f"{document.filename}_thumbnail.pdf"
+    )
+
+
+@router.post("/{document_id}/current-context")
+async def get_current_context(
+    document_id: UUID,
+    page: int,
+    x: Optional[float] = None,
+    y: Optional[float] = None,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get relevant chunk context based on current reading position.
+
+    This endpoint finds chunks that overlap with the current page and position,
+    which can be used for context-aware AI chat.
+
+    Args:
+        document_id: Document unique identifier
+        page: Current page number (1-based)
+        x: Optional X coordinate on page
+        y: Optional Y coordinate on page
+        db: Database session
+
+    Returns:
+        Current context information including relevant chunks
+
+    Raises:
+        HTTPException: If document not found
+    """
+    doc_repo = DocumentRepository(db)
+    chunk_repo = ChunkRepository(db)
+
+    # Check if document exists
+    document = await doc_repo.get_by_id(document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found"
+        )
+
+    # Get all chunks for the document
+    all_chunks = await chunk_repo.get_by_document_id(document_id, skip=0, limit=10000)
+
+    # Filter chunks that are on or near the current page
+    relevant_chunks = []
+    for chunk in all_chunks:
+        if chunk.start_page <= page <= chunk.end_page:
+            # Calculate relevance score based on position
+            relevance = 1.0
+            
+            # If coordinates provided, check if chunk overlaps with position
+            if x is not None and y is not None and chunk.chunk_metadata:
+                bboxes = chunk.chunk_metadata.get('bounding_boxes', [])
+                for bbox in bboxes:
+                    if (bbox.get('page') == page and
+                        bbox.get('x0', 0) <= x <= bbox.get('x1', 999) and
+                        bbox.get('y0', 0) <= y <= bbox.get('y1', 999)):
+                        relevance = 2.0  # Higher relevance for position match
+                        break
+            
+            relevant_chunks.append({
+                'chunk_id': str(chunk.id),
+                'chunk_index': chunk.chunk_index,
+                'content': chunk.content,
+                'chunk_type': chunk.chunk_type,
+                'start_page': chunk.start_page,
+                'end_page': chunk.end_page,
+                'relevance': relevance,
+                'bounding_boxes': chunk.chunk_metadata.get('bounding_boxes', []) if chunk.chunk_metadata else []
+            })
+
+    # Sort by relevance and page proximity
+    relevant_chunks.sort(key=lambda c: (-c['relevance'], abs(c['start_page'] - page)))
+
+    # Return top 5 most relevant chunks
+    top_chunks = relevant_chunks[:5]
+
+    return {
+        'document_id': str(document_id),
+        'current_page': page,
+        'current_position': {'x': x, 'y': y} if x is not None and y is not None else None,
+        'relevant_chunks': top_chunks,
+        'total_found': len(relevant_chunks)
+    }
+
+
+@router.get("/{document_id}/chunks/{chunk_id}")
+async def get_chunk_detail(
+    document_id: UUID,
+    chunk_id: UUID,
+    db: AsyncSession = Depends(get_db)
+) -> ChunkResponse:
+    """
+    Get detailed information about a specific chunk.
+
+    Args:
+        document_id: Document unique identifier
+        chunk_id: Chunk unique identifier
+        db: Database session
+
+    Returns:
+        Detailed chunk information
+
+    Raises:
+        HTTPException: If document or chunk not found
+    """
+    doc_repo = DocumentRepository(db)
+    chunk_repo = ChunkRepository(db)
+
+    # Check if document exists
+    document = await doc_repo.get_by_id(document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found"
+        )
+
+    # Get chunk
+    chunk = await chunk_repo.get_by_id(chunk_id)
+    if not chunk or str(chunk.document_id) != str(document_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chunk {chunk_id} not found in document {document_id}"
+        )
+
+    # Extract bounding boxes from metadata if available
+    bounding_boxes = []
+    if chunk.chunk_metadata and 'bounding_boxes' in chunk.chunk_metadata:
+        bboxes = chunk.chunk_metadata['bounding_boxes']
+        if isinstance(bboxes, list):
+            bounding_boxes = [BoundingBox(**bbox) if isinstance(bbox, dict) else bbox for bbox in bboxes]
+
+    return ChunkResponse(
+        id=chunk.id,
+        document_id=chunk.document_id,
+        content=chunk.content,
+        chunk_index=chunk.chunk_index,
+        chunk_type=chunk.chunk_type,
+        start_page=chunk.start_page,
+        end_page=chunk.end_page,
+        token_count=chunk.token_count,
+        vector_id=chunk.vector_id,
+        bounding_boxes=bounding_boxes,
+        chunk_metadata=chunk.chunk_metadata or {},
+        created_at=chunk.created_at,
+        updated_at=chunk.updated_at,
     )
