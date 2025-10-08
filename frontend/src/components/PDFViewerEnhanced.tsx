@@ -94,6 +94,10 @@ export default function PDFViewerEnhanced({
 
     const containerRef = useRef<HTMLDivElement>(null);
     const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    // PDF document and pages references for coordinate conversion
+    const pdfDocumentRef = useRef<any>(null);  // PDFDocumentProxy
+    const pdfPagesCache = useRef<Map<number, any>>(new Map());  // PDFPageProxy cache
+    
     // Annotations state (in-memory). For persistence, we can extend to call backend.
     const [annotations, setAnnotations] = useState<Array<{
         id: string;
@@ -139,21 +143,109 @@ export default function PDFViewerEnhanced({
     const [selectionInfo, setSelectionInfo] = useState<{
         visible: boolean;
         pageNumber: number | null;
-        x: number;
+        x: number;  // PDF coordinates
         y: number;
         width: number;
         height: number;
         text: string;
+        toolbarX?: number;  // Screen coordinates for toolbar positioning
+        toolbarY?: number;
     }>({ visible: false, pageNumber: null, x: 0, y: 0, width: 0, height: 0, text: '' });
 
     // PDF load success
     const onDocumentLoadSuccess = useCallback(
-        ({ numPages: nextNumPages }: { numPages: number }) => {
-            setNumPages(nextNumPages);
+        (pdf: any) => {  // pdf is PDFDocumentProxy
+            setNumPages(pdf.numPages);
             setPageNumber(1);
+            // Save document reference for coordinate conversion
+            pdfDocumentRef.current = pdf;
+            // Clear pages cache
+            pdfPagesCache.current.clear();
         },
         []
     );
+
+    // Get or load PDF page for coordinate conversion
+    const getPDFPage = useCallback(async (pageNum: number) => {
+        // Check cache first
+        if (pdfPagesCache.current.has(pageNum)) {
+            return pdfPagesCache.current.get(pageNum);
+        }
+        
+        // Load page if not cached
+        if (pdfDocumentRef.current) {
+            try {
+                const page = await pdfDocumentRef.current.getPage(pageNum);
+                pdfPagesCache.current.set(pageNum, page);
+                return page;
+            } catch (error) {
+                console.error(`Failed to load PDF page ${pageNum}:`, error);
+                return null;
+            }
+        }
+        return null;
+    }, []);
+
+    // Convert screen coordinates to PDF coordinates
+    const convertScreenToPDF = useCallback(async (
+        rect: DOMRect,
+        pageElement: HTMLElement,
+        pageNum: number
+    ): Promise<{ x: number; y: number; width: number; height: number } | null> => {
+        const pdfPage = await getPDFPage(pageNum);
+        if (!pdfPage) {
+            console.warn('PDF page not available for coordinate conversion');
+            return null;
+        }
+
+        const viewport = pdfPage.getViewport({ scale });
+        const pageRect = pageElement.getBoundingClientRect();
+
+        // Calculate relative position to page element
+        const relX = rect.left - pageRect.left;
+        const relY = rect.top - pageRect.top;
+        const relX2 = rect.right - pageRect.left;
+        const relY2 = rect.bottom - pageRect.top;
+
+        // Convert to PDF coordinates using viewport
+        const [pdfX, pdfY] = viewport.convertToPdfPoint(relX, relY);
+        const [pdfX2, pdfY2] = viewport.convertToPdfPoint(relX2, relY2);
+
+        return {
+            x: Math.min(pdfX, pdfX2),
+            y: Math.min(pdfY, pdfY2),
+            width: Math.abs(pdfX2 - pdfX),
+            height: Math.abs(pdfY2 - pdfY),
+        };
+    }, [scale, getPDFPage]);
+
+    // Convert PDF coordinates to screen coordinates for rendering
+    const convertPDFToScreen = useCallback(async (
+        pdfCoords: { x: number; y: number; width: number; height: number },
+        pageNum: number
+    ): Promise<{ left: number; top: number; width: number; height: number } | null> => {
+        const pdfPage = await getPDFPage(pageNum);
+        if (!pdfPage) {
+            console.warn('PDF page not available for coordinate conversion');
+            return null;
+        }
+
+        const viewport = pdfPage.getViewport({ scale });
+
+        // Convert PDF coordinates to viewport coordinates
+        const [x1, y1] = viewport.convertToViewportPoint(pdfCoords.x, pdfCoords.y);
+        const [x2, y2] = viewport.convertToViewportPoint(
+            pdfCoords.x + pdfCoords.width,
+            pdfCoords.y + pdfCoords.height
+        );
+
+        return {
+            left: Math.min(x1, x2),
+            top: Math.min(y1, y2),
+            width: Math.abs(x2 - x1),
+            height: Math.abs(y2 - y1),
+        };
+    }, [scale, getPDFPage]);
 
     // Navigation
     const goToPrevPage = useCallback(() => {
@@ -357,25 +449,30 @@ export default function PDFViewerEnhanced({
     useEffect(() => {
         if (!onTextSelected) return;
 
-        const handleSelection = () => {
+        const handleSelection = async () => {
             const selection = window.getSelection();
             if (!selection || selection.isCollapsed) return;
 
             const selectedText = selection.toString().trim();
             if (selectedText.length < 3) return; // Ignore very short selections
 
-            // Get selection rect relative to page
+            // Get selection rect
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
 
-            // Get container rect for relative positioning
-            const containerRect = containerRef.current?.getBoundingClientRect();
-            if (!containerRect) return;
-
-            // Calculate relative position
-            const position = {
-                x: rect.left - containerRect.left,
-                y: rect.top - containerRect.top,
+            // Get page element for coordinate conversion
+            const pageElement = pageRefs.current.get(pageNumber);
+            
+            // Try to convert to PDF coordinates
+            let pdfCoords = null;
+            if (pageElement) {
+                pdfCoords = await convertScreenToPDF(rect, pageElement, pageNumber);
+            }
+            
+            // Fallback to relative coordinates if PDF conversion fails
+            const position = pdfCoords || {
+                x: rect.left - (containerRef.current?.getBoundingClientRect().left || 0),
+                y: rect.top - (containerRef.current?.getBoundingClientRect().top || 0),
                 width: rect.width,
                 height: rect.height,
             };
@@ -386,22 +483,31 @@ export default function PDFViewerEnhanced({
                 pageNumber: pageNumber,
                 position: position,
             });
-            // Show selection toolbar near selection
+            
+            // Show selection toolbar near selection (use screen coordinates for toolbar positioning)
+            const containerRect = containerRef.current?.getBoundingClientRect();
+            const toolbarPosition = containerRect ? {
+                x: rect.left - containerRect.left,
+                y: rect.top - containerRect.top,
+            } : { x: 0, y: 0 };
+            
             setSelectionInfo({
                 visible: true,
                 pageNumber: pageNumber,
-                x: position.x,
+                x: position.x,  // PDF coordinates for annotation
                 y: position.y,
                 width: position.width,
                 height: position.height,
                 text: selectedText,
+                toolbarX: toolbarPosition.x,  // Screen coordinates for toolbar
+                toolbarY: toolbarPosition.y,
             });
         };
 
         // Listen for mouseup event (after text selection)
         document.addEventListener('mouseup', handleSelection);
         return () => document.removeEventListener('mouseup', handleSelection);
-    }, [onTextSelected, pageNumber]);
+    }, [onTextSelected, pageNumber, convertScreenToPDF]);
 
     // Hide selection toolbar on scroll or click elsewhere
     useEffect(() => {
