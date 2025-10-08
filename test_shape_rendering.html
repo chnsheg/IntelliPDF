@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,28 +13,33 @@
             padding: 20px;
             background: #f5f5f5;
         }
+
         .test-section {
             background: white;
             padding: 20px;
             margin: 20px 0;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .test-section h2 {
             color: #333;
             border-bottom: 2px solid #2196F3;
             padding-bottom: 10px;
         }
+
         .step {
             margin: 15px 0;
             padding: 15px;
             background: #f9f9f9;
             border-left: 4px solid #2196F3;
         }
+
         .step h3 {
             margin: 0 0 10px 0;
             color: #2196F3;
         }
+
         .code {
             background: #263238;
             color: #aed581;
@@ -42,18 +48,22 @@
             font-family: 'Courier New', monospace;
             overflow-x: auto;
         }
+
         .success {
             color: #4CAF50;
             font-weight: bold;
         }
+
         .warning {
             color: #FF9800;
             font-weight: bold;
         }
+
         .error {
             color: #F44336;
             font-weight: bold;
         }
+
         button {
             background: #2196F3;
             color: white;
@@ -64,28 +74,33 @@
             font-size: 14px;
             margin: 5px;
         }
+
         button:hover {
             background: #1976D2;
         }
+
         #result {
             margin-top: 20px;
             padding: 15px;
             border-radius: 4px;
             display: none;
         }
+
         #result.success {
             background: #E8F5E9;
             border: 1px solid #4CAF50;
         }
+
         #result.error {
             background: #FFEBEE;
             border: 1px solid #F44336;
         }
     </style>
 </head>
+
 <body>
     <h1>🎨 图形标注渲染功能测试</h1>
-    
+
     <div class="test-section">
         <h2>📋 测试说明</h2>
         <p>本页面用于测试 IntelliPDF 的图形标注渲染功能。</p>
@@ -99,7 +114,7 @@
 
     <div class="test-section">
         <h2>🔬 手动测试步骤</h2>
-        
+
         <div class="step">
             <h3>步骤 1: 打开应用</h3>
             <p>1. 在浏览器中打开 <a href="http://localhost:5174" target="_blank">http://localhost:5174</a></p>
@@ -136,9 +151,9 @@
             <p>按 <code>F12</code> 打开开发者工具，检查：</p>
             <p>1. <strong>Console</strong> 标签：查看日志信息</p>
             <div class="code">
-// 应该看到类似的日志：
-Loaded 3 annotations from backend
-Created annotation shape-xxx for document yyy
+                // 应该看到类似的日志：
+                Loaded 3 annotations from backend
+                Created annotation shape-xxx for document yyy
             </div>
             <p>2. <strong>Network</strong> 标签：验证 API 请求</p>
             <ul>
@@ -161,68 +176,68 @@ Created annotation shape-xxx for document yyy
         <h2>📊 预期数据格式</h2>
         <p><strong>后端返回的标注数据：</strong></p>
         <div class="code">
-{
-  "annotations": [
-    {
-      "id": "3953e068-94cb-4ac0-8b80-235187dc30e7",
-      "document_id": "8523c731-ccea-4137-8472-600dcb5f4b64",
-      "user_id": "test_user",
-      "annotation_type": "shape",
-      "page_number": 1,
-      "data": {
-        "id": "shape-test-rectangle",
-        "type": "shape",
-        "shapeType": "rectangle",
-        "geometry": {
-          "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
-        },
-        "style": {
-          "color": "#2196F3",
-          "opacity": 0.8,
-          "strokeWidth": 2,
-          "fillColor": "#2196F3",
-          "fillOpacity": 0.2
-        }
-      },
-      "created_at": "2025-10-08T19:31:00",
-      "updated_at": "2025-10-08T19:31:00"
-    }
-  ],
-  "total": 1
-}
+            {
+            "annotations": [
+            {
+            "id": "3953e068-94cb-4ac0-8b80-235187dc30e7",
+            "document_id": "8523c731-ccea-4137-8472-600dcb5f4b64",
+            "user_id": "test_user",
+            "annotation_type": "shape",
+            "page_number": 1,
+            "data": {
+            "id": "shape-test-rectangle",
+            "type": "shape",
+            "shapeType": "rectangle",
+            "geometry": {
+            "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
+            },
+            "style": {
+            "color": "#2196F3",
+            "opacity": 0.8,
+            "strokeWidth": 2,
+            "fillColor": "#2196F3",
+            "fillOpacity": 0.2
+            }
+            },
+            "created_at": "2025-10-08T19:31:00",
+            "updated_at": "2025-10-08T19:31:00"
+            }
+            ],
+            "total": 1
+            }
         </div>
 
         <p><strong>转换后的前端格式：</strong></p>
         <div class="code">
-{
-  "id": "shape-test-rectangle",
-  "type": "shape",
-  "pageNumber": 1,
-  "geometry": {
-    "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
-  },
-  "style": {
-    "type": "rectangle",
-    "color": "#2196F3",
-    "opacity": 0.8,
-    "strokeWidth": 2,
-    "fillColor": "#2196F3",
-    "fillOpacity": 0.2,
-    "lineStyle": "solid"
-  },
-  "metadata": {
-    "createdAt": "2025-10-08T19:31:00",
-    "updatedAt": "2025-10-08T19:31:00",
-    "userId": "test_user",
-    "userName": "Anonymous"
-  }
-}
+            {
+            "id": "shape-test-rectangle",
+            "type": "shape",
+            "pageNumber": 1,
+            "geometry": {
+            "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
+            },
+            "style": {
+            "type": "rectangle",
+            "color": "#2196F3",
+            "opacity": 0.8,
+            "strokeWidth": 2,
+            "fillColor": "#2196F3",
+            "fillOpacity": 0.2,
+            "lineStyle": "solid"
+            },
+            "metadata": {
+            "createdAt": "2025-10-08T19:31:00",
+            "updatedAt": "2025-10-08T19:31:00",
+            "userId": "test_user",
+            "userName": "Anonymous"
+            }
+            }
         </div>
     </div>
 
     <div class="test-section">
         <h2>🐛 常见问题</h2>
-        
+
         <h3>问题 1: 图形不显示</h3>
         <p><strong>原因</strong>：数据格式不匹配或坐标转换错误</p>
         <p><strong>解决</strong>：</p>
@@ -253,17 +268,17 @@ Created annotation shape-xxx for document yyy
 
     <script>
         const API_BASE = 'http://localhost:8000/api/v1';
-        
+
         async function testGetDocuments() {
             const result = document.getElementById('result');
             result.style.display = 'block';
             result.className = '';
             result.innerHTML = '⏳ 正在获取文档列表...';
-            
+
             try {
                 const response = await fetch(`${API_BASE}/documents/`);
                 const data = await response.json();
-                
+
                 if (data.documents && data.documents.length > 0) {
                     result.className = 'success';
                     result.innerHTML = `
@@ -280,33 +295,33 @@ Created annotation shape-xxx for document yyy
                 result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error.message}`;
             }
         }
-        
+
         async function testGetAnnotations() {
             const result = document.getElementById('result');
             result.style.display = 'block';
             result.className = '';
             result.innerHTML = '⏳ 正在获取标注列表...';
-            
+
             try {
                 // 先获取文档列表
                 const docResp = await fetch(`${API_BASE}/documents/`);
                 const docData = await docResp.json();
-                
+
                 if (!docData.documents || docData.documents.length === 0) {
                     result.className = 'error';
                     result.innerHTML = '<strong class="error">❌ 错误</strong><br>未找到文档';
                     return;
                 }
-                
+
                 const docId = docData.documents[0].id;
-                
+
                 // 获取标注
                 const annResp = await fetch(`${API_BASE}/annotations/documents/${docId}`);
                 const annData = await annResp.json();
-                
-                const shapeCount = annData.annotations ? 
+
+                const shapeCount = annData.annotations ?
                     annData.annotations.filter(a => a.annotation_type === 'shape').length : 0;
-                
+
                 result.className = 'success';
                 result.innerHTML = `
                     <strong class="success">✅ 成功</strong><br>
@@ -323,26 +338,26 @@ Created annotation shape-xxx for document yyy
                 result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error.message}`;
             }
         }
-        
+
         async function testCreateShape() {
             const result = document.getElementById('result');
             result.style.display = 'block';
             result.className = '';
             result.innerHTML = '⏳ 正在创建测试图形...';
-            
+
             try {
                 // 先获取文档 ID
                 const docResp = await fetch(`${API_BASE}/documents/`);
                 const docData = await docResp.json();
-                
+
                 if (!docData.documents || docData.documents.length === 0) {
                     result.className = 'error';
                     result.innerHTML = '<strong class="error">❌ 错误</strong><br>未找到文档';
                     return;
                 }
-                
+
                 const docId = docData.documents[0].id;
-                
+
                 // 创建测试图形
                 const annotationData = {
                     document_id: docId,
@@ -371,13 +386,13 @@ Created annotation shape-xxx for document yyy
                     },
                     tags: ['test']
                 };
-                
+
                 const createResp = await fetch(`${API_BASE}/annotations/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(annotationData)
                 });
-                
+
                 if (createResp.ok) {
                     const created = await createResp.json();
                     result.className = 'success';
@@ -400,4 +415,5 @@ Created annotation shape-xxx for document yyy
         }
     </script>
 </body>
+
 </html>

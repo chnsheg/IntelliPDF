@@ -57,7 +57,7 @@ export const NoteTool: React.FC<NoteToolProps> = ({
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
     const [currentColor, setCurrentColor] = useState('#FFD54F');
-    
+
     const overlayRef = useRef<HTMLDivElement>(null);
 
     /**

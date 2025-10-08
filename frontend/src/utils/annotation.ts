@@ -395,10 +395,10 @@ export function blobToDataURL(blob: Blob): Promise<string> {
  */
 export function transformBackendAnnotation(backendAnnotation: any): any {
     const { annotation_type, data, page_number, user_id, user_name, created_at, id } = backendAnnotation;
-    
+
     // 解析 data 字段（可能是字符串或对象）
     const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-    
+
     if (annotation_type === 'shape') {
         // 图形标注
         return {
@@ -439,7 +439,7 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
             },
         };
     }
-    
+
     // 其他类型标注
     return {
         ...parsedData,

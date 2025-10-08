@@ -67,7 +67,7 @@ function isPointInCircle(x: number, y: number, geometry: Geometry): boolean {
     const centerY = geometry.y + geometry.height / 2;
     const radiusX = geometry.width / 2;
     const radiusY = geometry.height / 2;
-    
+
     // 椭圆公式: ((x-cx)/rx)^2 + ((y-cy)/ry)^2 <= 1
     const dx = (x - centerX) / radiusX;
     const dy = (y - centerY) / radiusY;
@@ -82,18 +82,18 @@ function isPointNearArrow(x: number, y: number, geometry: Geometry, tolerance: n
     const startY = geometry.y;
     const endX = geometry.x + geometry.width;
     const endY = geometry.y + geometry.height;
-    
+
     // 计算点到线段的距离
     const lineLength = Math.sqrt(geometry.width ** 2 + geometry.height ** 2);
     if (lineLength === 0) return false;
-    
+
     const t = Math.max(0, Math.min(1,
         ((x - startX) * (endX - startX) + (y - startY) * (endY - startY)) / (lineLength ** 2)
     ));
-    
+
     const projX = startX + t * (endX - startX);
     const projY = startY + t * (endY - startY);
-    
+
     const distance = Math.sqrt((x - projX) ** 2 + (y - projY) ** 2);
     return distance <= tolerance;
 }
@@ -103,17 +103,17 @@ function isPointNearArrow(x: number, y: number, geometry: Geometry, tolerance: n
  */
 function hitTest(x: number, y: number, annotation: Annotation): boolean {
     const { type } = annotation.style || {};
-    
+
     switch (type) {
         case 'rectangle':
             return isPointInRect(x, y, annotation.geometry);
-        
+
         case 'circle':
             return isPointInCircle(x, y, annotation.geometry);
-        
+
         case 'arrow':
             return isPointNearArrow(x, y, annotation.geometry);
-        
+
         default:
             return isPointInRect(x, y, annotation.geometry);
     }
@@ -250,7 +250,7 @@ function drawSelectionBox(ctx: CanvasRenderingContext2D, annotation: Annotation)
     const { x, y, width, height } = annotation.geometry;
 
     ctx.save();
-    
+
     // 绘制虚线边框
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;

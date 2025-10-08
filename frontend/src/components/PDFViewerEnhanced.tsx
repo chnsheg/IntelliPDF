@@ -118,7 +118,11 @@ export default function PDFViewerEnhanced({
     const [isDrawingShape, setIsDrawingShape] = useState(false);
     const [currentShapeTool, setCurrentShapeTool] = useState<'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null>(null);
     const [annotationMode, setAnnotationMode] = useState<'text' | 'shape' | 'ink' | 'note' | 'select' | null>(null);
-    
+
+    // Note tool state
+    const [isPlacingNote, setIsPlacingNote] = useState(false);
+    const [noteAnnotations, setNoteAnnotations] = useState<any[]>([]);
+
     // Selection state
     const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
     const annotationCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -149,14 +153,14 @@ export default function PDFViewerEnhanced({
             try {
                 const resp = await apiService.getAnnotationsForDocument(documentId);
                 if (!mounted) return;
-                
+
                 // 转换后端数据为前端格式
                 const backendAnnotations = resp.annotations || [];
                 const transformedAnnotations = backendAnnotations.map(transformBackendAnnotation);
-                
+
                 // 直接设置标注列表（annotation manager 已有这些标注）
                 setAnnotations(transformedAnnotations);
-                
+
                 console.log(`Loaded ${transformedAnnotations.length} annotations from backend`);
             } catch (e) {
                 console.warn('Failed to load annotations', e);
@@ -710,6 +714,85 @@ export default function PDFViewerEnhanced({
         }
     }, [documentId, currentShapeTool]);
 
+    // Handle note complete
+    const handleNoteComplete = useCallback(async (note: any) => {
+        try {
+            // Add to local state temporarily
+            setNoteAnnotations(prev => [...prev, note]);
+            console.log('Note placed:', note.id);
+        } catch (err) {
+            console.error('Failed to place note:', err);
+        }
+    }, []);
+
+    // Handle note update
+    const handleNoteUpdate = useCallback(async (noteId: string, content: string) => {
+        try {
+            // Find the note
+            const note = noteAnnotations.find(n => n.id === noteId);
+            if (!note) {
+                console.error('Note not found:', noteId);
+                return;
+            }
+
+            // Update note content
+            note.content = content;
+
+            // Prepare annotation data for backend
+            const annotationPayload = {
+                document_id: documentId,
+                user_id: localStorage.getItem('user_id') || 'anonymous',
+                user_name: localStorage.getItem('user_name') || 'Anonymous',
+                annotation_type: 'note',
+                page_number: note.pageNumber,
+                data: {
+                    id: note.id,
+                    type: 'note',
+                    position: note.position,
+                    content: content,
+                    color: note.color,
+                    author: note.author
+                },
+                content: content,
+                tags: []
+            };
+
+            // Save to backend using Command pattern
+            const createCommand = new CreateAnnotationCommand(
+                note as any,
+                async (ann: any) => {
+                    await apiService.createAnnotation(annotationPayload);
+                    // Reload annotations
+                    const resp = await apiService.getAnnotationsForDocument(documentId);
+                    const backendAnnotations = resp.annotations || [];
+                    const transformedAnnotations = backendAnnotations.map((a: any) => transformBackendAnnotation(a));
+                    setAnnotations(transformedAnnotations);
+                },
+                async (id: string) => {
+                    await apiService.deleteAnnotation(id);
+                }
+            );
+
+            await historyManager.execute(createCommand);
+
+            console.log('Note saved successfully', noteId);
+        } catch (err) {
+            console.error('Failed to save note:', err);
+            alert('保存便笺失败，请重试');
+        }
+    }, [noteAnnotations, documentId]);
+
+    // Handle note delete
+    const handleNoteDelete = useCallback(async (noteId: string) => {
+        try {
+            // Remove from local state
+            setNoteAnnotations(prev => prev.filter(n => n.id !== noteId));
+            console.log('Note deleted:', noteId);
+        } catch (err) {
+            console.error('Failed to delete note:', err);
+        }
+    }, []);
+
     // Handle annotation selection
     const handleAnnotationSelect = useCallback((annotationId: string | null) => {
         setSelectedAnnotationId(annotationId);
@@ -1140,8 +1223,14 @@ export default function PDFViewerEnhanced({
                     setAnnotationMode(mode);
                     if (mode === 'shape') {
                         setIsDrawingShape(true);
+                        setIsPlacingNote(false);
+                    } else if (mode === 'note') {
+                        setIsPlacingNote(true);
+                        setIsDrawingShape(false);
+                        setCurrentShapeTool(null);
                     } else {
                         setIsDrawingShape(false);
+                        setIsPlacingNote(false);
                         setCurrentShapeTool(null);
                     }
                 }}
@@ -1149,11 +1238,13 @@ export default function PDFViewerEnhanced({
                     setCurrentShapeTool(tool);
                     if (tool) {
                         setIsDrawingShape(true);
+                        setIsPlacingNote(false);
                         setAnnotationMode('shape');
                     }
                 }}
                 onCancel={() => {
                     setIsDrawingShape(false);
+                    setIsPlacingNote(false);
                     setCurrentShapeTool(null);
                     setAnnotationMode(null);
                 }}
@@ -1212,6 +1303,22 @@ export default function PDFViewerEnhanced({
                                             onCancel={() => {
                                                 setIsDrawingShape(false);
                                                 setCurrentShapeTool(null);
+                                                setAnnotationMode(null);
+                                            }}
+                                        />
+                                    )}
+                                    {/* Note tool */}
+                                    {isPlacingNote && pdfPagesCache.current.has(pageNumber) && (
+                                        <NoteTool
+                                            pageNumber={pageNumber}
+                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                            scale={scale}
+                                            notes={noteAnnotations.filter(n => n.pageNumber === pageNumber)}
+                                            onNoteComplete={handleNoteComplete}
+                                            onNoteUpdate={handleNoteUpdate}
+                                            onNoteDelete={handleNoteDelete}
+                                            onCancel={() => {
+                                                setIsPlacingNote(false);
                                                 setAnnotationMode(null);
                                             }}
                                         />

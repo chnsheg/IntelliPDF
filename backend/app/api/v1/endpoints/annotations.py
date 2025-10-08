@@ -154,7 +154,8 @@ async def delete_annotation(
         # Convert annotation_id to UUID if needed
         from uuid import UUID
         try:
-            id_uuid = UUID(annotation_id) if isinstance(annotation_id, str) else annotation_id
+            id_uuid = UUID(annotation_id) if isinstance(
+                annotation_id, str) else annotation_id
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -15,11 +15,13 @@ from typing import Dict, Any
 
 BASE_URL = "http://localhost:8000/api/v1"
 
+
 def print_section(title: str):
     """打印章节标题"""
     print("\n" + "=" * 60)
     print(f"  {title}")
     print("=" * 60)
+
 
 def check_health() -> bool:
     """检查后端服务健康状态"""
@@ -35,6 +37,7 @@ def check_health() -> bool:
         print(f"❌ 无法连接到后端服务: {e}")
         return False
 
+
 def get_test_document() -> Dict[str, Any]:
     """获取测试文档"""
     try:
@@ -42,11 +45,13 @@ def get_test_document() -> Dict[str, Any]:
         if resp.status_code == 200:
             data = resp.json()
             # Handle different response formats
-            docs = data if isinstance(data, list) else data.get('documents', [])
-            
+            docs = data if isinstance(
+                data, list) else data.get('documents', [])
+
             if docs and len(docs) > 0:
                 doc = docs[0]
-                print(f"✅ 找到测试文档: {doc.get('filename', doc.get('title', 'unknown'))}")
+                print(
+                    f"✅ 找到测试文档: {doc.get('filename', doc.get('title', 'unknown'))}")
                 return doc
             else:
                 print("❌ 没有找到文档")
@@ -60,6 +65,7 @@ def get_test_document() -> Dict[str, Any]:
         import traceback
         traceback.print_exc()
         return None
+
 
 def create_test_annotation(document_id: str, shape_type: str) -> Dict[str, Any]:
     """创建测试标注"""
@@ -109,6 +115,7 @@ def create_test_annotation(document_id: str, shape_type: str) -> Dict[str, Any]:
         print(f"❌ 创建{shape_type}标注异常: {e}")
         return None
 
+
 def get_document_annotations(document_id: str) -> list:
     """获取文档的所有标注"""
     try:
@@ -128,6 +135,7 @@ def get_document_annotations(document_id: str) -> list:
         print(f"❌ 获取标注列表异常: {e}")
         return []
 
+
 def delete_annotation(annotation_id: str) -> bool:
     """删除标注"""
     try:
@@ -145,6 +153,7 @@ def delete_annotation(annotation_id: str) -> bool:
     except Exception as e:
         print(f"❌ 删除标注异常: {e}")
         return False
+
 
 def main():
     """主测试流程"""
@@ -210,7 +219,8 @@ def main():
             print("\n🔍 验证删除结果...")
             annotations_after = get_document_annotations(document_id)
 
-            deleted = all(ann['id'] != annotation_id for ann in annotations_after)
+            deleted = all(
+                ann['id'] != annotation_id for ann in annotations_after)
             if deleted:
                 print(f"✅ 验证成功: 标注已被删除")
                 print(f"   删除前: {len(annotations)} 个标注")
@@ -222,7 +232,7 @@ def main():
 
     # Step 6: 清理所有测试标注
     print_section("Step 6: 清理测试数据")
-    
+
     success_count = 0
     for annotation in test_annotations[1:]:  # 跳过第一个(已删除)
         if delete_annotation(annotation['id']):
@@ -239,6 +249,7 @@ def main():
     print("  ✅ 删除单个标注")
     print("  ✅ 验证删除结果")
     print("  ✅ 批量删除标注")
+
 
 if __name__ == "__main__":
     main()
