@@ -31,7 +31,7 @@ import { NoteTool } from './annotation/NoteTool';
 import { DraggableAnnotation } from './annotation/DraggableAnnotation';
 import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
-import { historyManager, CreateAnnotationCommand, DeleteAnnotationCommand, MoveAnnotationCommand } from '../services/annotation/HistoryManager';
+import { historyManager, CreateAnnotationCommand, DeleteAnnotationCommand, MoveAnnotationCommand, ResizeAnnotationCommand } from '../services/annotation/HistoryManager';
 import type { Annotation, ToolType } from '../types/annotation';
 import { transformBackendAnnotation } from '../utils/annotation';
 
@@ -939,26 +939,33 @@ export default function PDFViewerEnhanced({
                 return;
             }
 
-            // Update geometry
-            const updatedAnnotation = {
-                ...annotation,
-                geometry: newGeometry,
-            };
+            const oldGeometry = (annotation as any).geometry;
 
-            // Update backend
-            await apiService.updateAnnotation(annotationId, {
-                data: {
-                    id: annotation.id,
-                    type: annotation.type,
-                    geometry: newGeometry,
-                    style: (annotation as any).style,
+            // Create resize command for undo/redo
+            const resizeCommand = new ResizeAnnotationCommand(
+                annotationId,
+                oldGeometry,
+                newGeometry,
+                async (id: string, geometry: any) => {
+                    // Update backend
+                    await apiService.updateAnnotation(id, {
+                        data: {
+                            id,
+                            type: annotation.type,
+                            geometry,
+                            style: (annotation as any).style,
+                        }
+                    });
+
+                    // Update local state
+                    setAnnotations(prev =>
+                        prev.map(a => (a.id === id ? { ...a, geometry } as any : a))
+                    );
                 }
-            });
-
-            // Update local state
-            setAnnotations(prev =>
-                prev.map(a => (a.id === annotationId ? updatedAnnotation : a))
             );
+
+            // Execute command through history manager
+            await historyManager.execute(resizeCommand);
 
             console.log('Annotation resized:', annotationId, newGeometry);
         } catch (err) {
@@ -1309,6 +1316,7 @@ export default function PDFViewerEnhanced({
                                             selectedAnnotationId={selectedAnnotationId}
                                             onSelect={handleAnnotationSelect}
                                             onMoveComplete={handleAnnotationMove}
+                                            onResizeComplete={handleAnnotationResize}
                                         />
                                     )}
                                     {/* Shape drawing tool */}
