@@ -8,7 +8,7 @@ import { FiSquare, FiCircle, FiArrowRight, FiEdit3, FiMessageSquare, FiMousePoin
 import clsx from 'clsx';
 
 type ShapeType = 'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null;
-type AnnotationMode = 'text' | 'shape' | 'ink' | 'note' | null;
+type AnnotationMode = 'text' | 'shape' | 'ink' | 'note' | 'select' | null;
 
 interface AnnotationToolbarProps {
     mode: AnnotationMode;

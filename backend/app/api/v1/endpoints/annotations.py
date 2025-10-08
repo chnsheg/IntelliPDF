@@ -151,14 +151,32 @@ async def delete_annotation(
 ):
     """Delete an annotation"""
     try:
-        model = await repo.get_by_id(annotation_id)
+        # Convert annotation_id to UUID if needed
+        from uuid import UUID
+        try:
+            id_uuid = UUID(annotation_id) if isinstance(annotation_id, str) else annotation_id
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid annotation ID format"
+            )
+
+        # Check if annotation exists
+        model = await repo.get_by_id(id_uuid)
         if not model:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Annotation not found"
             )
 
-        await repo.delete(model)
+        # Delete by ID, not by model instance
+        deleted = await repo.delete(id_uuid)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete annotation"
+            )
+
         logger.info(f"Deleted annotation {annotation_id}")
         return None
     except HTTPException:

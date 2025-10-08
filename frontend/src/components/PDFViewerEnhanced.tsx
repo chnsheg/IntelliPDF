@@ -448,6 +448,14 @@ export default function PDFViewerEnhanced({
                     e.preventDefault();
                     zoomOut();
                     break;
+                case 'Delete':
+                case 'Backspace':
+                    // Delete selected annotation
+                    if (selectedAnnotationId) {
+                        e.preventDefault();
+                        handleAnnotationDelete(selectedAnnotationId);
+                    }
+                    break;
                 case '0':
                     e.preventDefault();
                     fitToWidth();
@@ -1114,21 +1122,13 @@ export default function PDFViewerEnhanced({
                                             scale={scale}
                                             pdfPage={pdfPagesCache.current.get(pageNumber)!}
                                             selectedAnnotationIds={selectedAnnotationIds}
-                                            onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                            onAnnotationClick={(id) => {
+                                                annotationManager.selectAnnotation(id);
+                                                handleAnnotationSelect(id);
+                                            }}
                                         />
                                     )}
-                                    {/* Selection tool - only active when not drawing */}
-                                    {!isDrawingShape && annotationMode === 'select' && (
-                                        <SelectTool
-                                            pageNumber={pageNumber}
-                                            annotations={annotations.filter(a => a.pageNumber === pageNumber)}
-                                            canvasRef={pageRefs}
-                                            onSelectionChange={handleAnnotationSelect}
-                                            onDelete={handleAnnotationDelete}
-                                            onMove={handleAnnotationMove}
-                                            onResize={handleAnnotationResize}
-                                        />
-                                    )}
+                                    {/* Selection tool - TODO: integrate properly */}
                                     {/* Shape drawing tool */}
                                     {isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNumber) && (
                                         <ShapeTool
