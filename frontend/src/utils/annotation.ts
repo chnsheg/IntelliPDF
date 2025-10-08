@@ -396,12 +396,21 @@ export function blobToDataURL(blob: Blob): Promise<string> {
 export function transformBackendAnnotation(backendAnnotation: any): any {
     const { annotation_type, data, page_number, user_id, user_name, created_at, id } = backendAnnotation;
 
+    console.log('[transformBackendAnnotation] Input:', {
+        id,
+        annotation_type,
+        data: typeof data === 'string' ? JSON.parse(data) : data,
+        page_number
+    });
+
     // 解析 data 字段（可能是字符串或对象）
     const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
 
     if (annotation_type === 'shape') {
         // 图形标注
         const geometry = parsedData.geometry;
+        
+        console.log('[transformBackendAnnotation] Shape geometry:', geometry, 'shapeType:', parsedData.shapeType);
         
         // 转换 geometry 格式：确保符合 ShapeAnnotation 接口
         // 如果 geometry 直接有 x, y, width, height，需要包装成 rect
@@ -430,7 +439,7 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
             transformedGeometry = { rect: geometry };
         }
         
-        return {
+        const result = {
             id: parsedData.id || id,
             type: 'shape',
             pageNumber: page_number,
@@ -451,6 +460,9 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
                 userName: user_name || 'Anonymous',
             },
         };
+        
+        console.log('[transformBackendAnnotation] Shape result:', result);
+        return result;
     } else if (annotation_type === 'text-markup') {
         // 文本标注（高亮、下划线等）
         return {

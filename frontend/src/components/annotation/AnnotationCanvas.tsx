@@ -192,6 +192,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         viewport: any,
         isSelected: boolean
     ) => {
+        console.log('[renderShape] Annotation:', {
+            id: annotation.id,
+            type: annotation.type,
+            geometry: annotation.geometry,
+            style: annotation.style
+        });
+
         const { style } = annotation;
         const color = hexToRgba(style.color, style.opacity);
 
@@ -212,11 +219,15 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             ctx.fillStyle = hexToRgba(style.fillColor, style.fillOpacity || 0.3);
         }
 
+        console.log('[renderShape] Has rect:', !!annotation.geometry.rect, 'Has points:', !!annotation.geometry.points);
+
         if (annotation.geometry.rect) {
             const rect = pdfCoordinateService.rectangleToScreen(
                 annotation.geometry.rect,
                 viewport
             );
+            
+            console.log('[renderShape] Drawing rect:', rect);
 
             if (style.type === 'square') {
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
