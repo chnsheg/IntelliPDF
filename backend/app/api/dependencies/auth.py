@@ -9,12 +9,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
-from ..core.auth import AuthUtils
-from ..core.exceptions import AuthenticationError
-from ..models.db import UserModel
-from ..repositories.user_repository import UserRepository
-from ..services.auth_service import AuthService
+from ...core.dependencies import get_db
+from ...core.auth import AuthUtils
+from ...core.exceptions import AuthenticationError
+from ...models.db import UserModel
+from ...repositories.user_repository import UserRepository
+from ...services.auth_service import AuthService
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -66,7 +66,7 @@ async def get_current_user(
         HTTPException: If authentication fails
     """
     token = credentials.credentials
-    
+
     try:
         user = await auth_service.get_current_user(token)
         if user is None:
@@ -144,7 +144,7 @@ def get_optional_current_user(
     """
     if credentials is None:
         return None
-    
+
     token = credentials.credentials
     try:
         return AuthUtils.get_user_id_from_token(token)

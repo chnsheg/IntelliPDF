@@ -70,23 +70,23 @@ class AuthUtils:
             Encoded JWT token
         """
         to_encode = data.copy()
-        
+
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
             # Default expiration: 7 days
             expire = datetime.utcnow() + timedelta(days=7)
-        
+
         to_encode.update({
             "exp": expire,
             "iat": datetime.utcnow()
         })
-        
+
         try:
             encoded_jwt = jwt.encode(
                 to_encode,
-                settings.SECRET_KEY,
-                algorithm=settings.ALGORITHM
+                settings.secret_key,
+                algorithm=settings.algorithm
             )
             logger.info(f"Created access token for: {data.get('sub')}")
             return encoded_jwt
@@ -111,8 +111,8 @@ class AuthUtils:
         try:
             payload = jwt.decode(
                 token,
-                settings.SECRET_KEY,
-                algorithms=[settings.ALGORITHM]
+                settings.secret_key,
+                algorithms=[settings.algorithm]
             )
             return payload
         except jwt.ExpiredSignatureError:

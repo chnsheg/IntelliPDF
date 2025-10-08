@@ -16,7 +16,8 @@ from fastapi import (
     status,
     UploadFile,
     File,
-    BackgroundTasks
+    BackgroundTasks,
+    Request
 )
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -363,6 +364,14 @@ async def get_document_chunks(
     # Manually construct chunk responses to avoid SQLAlchemy metadata mapping issues
     chunk_responses = []
     for chunk in chunks:
+        # Extract bounding boxes from metadata if available
+        bounding_boxes = []
+        if chunk.chunk_metadata and 'bounding_boxes' in chunk.chunk_metadata:
+            bboxes = chunk.chunk_metadata['bounding_boxes']
+            if isinstance(bboxes, list):
+                bounding_boxes = [BoundingBox(
+                    **bbox) if isinstance(bbox, dict) else bbox for bbox in bboxes]
+
         chunk_responses.append(ChunkResponse(
             id=chunk.id,
             document_id=chunk.document_id,
@@ -373,6 +382,7 @@ async def get_document_chunks(
             end_page=chunk.end_page,
             token_count=chunk.token_count,
             vector_id=chunk.vector_id,
+            bounding_boxes=bounding_boxes,
             chunk_metadata=chunk.chunk_metadata or {},
             created_at=chunk.created_at,
             updated_at=chunk.updated_at,
@@ -388,7 +398,8 @@ async def get_document_chunks(
 @router.post("/{document_id}/chat", response_model=ChatResponse)
 async def chat_with_document(
     document_id: UUID,
-    request: ChatRequest,
+    payload: ChatRequest,
+    request_obj: Request = None,
     db: AsyncSession = Depends(get_db)
 ) -> ChatResponse:
     """
@@ -410,6 +421,26 @@ async def chat_with_document(
     Raises:
         HTTPException: If document not found or processing fails
     """
+    # Log incoming request for debugging
+    logger.info(f"Chat request received: document_id={document_id}")
+    # Log summary of parsed payload
+    try:
+        q_preview = payload.question[:50] if payload.question else ''
+    except Exception:
+        q_preview = '<unavailable>'
+
+    logger.info(f"Request data: question='{q_preview}...', "
+                f"top_k={payload.top_k}, temperature={payload.temperature}, "
+                f"history_len={len(payload.conversation_history) if payload.conversation_history else 0}")
+
+    # Also attempt to log raw JSON body for debugging frontend 422 issues
+    if request_obj is not None:
+        try:
+            raw = await request_obj.json()
+            logger.debug(f"Chat raw request body: {raw}")
+        except Exception as e:
+            logger.debug(f"Failed to read raw request body: {e}")
+
     start_time = time.time()
 
     doc_repo = DocumentRepository(db)
@@ -431,44 +462,117 @@ async def chat_with_document(
         collection_name = document.filename
 
         # Retrieve relevant chunks
-        results = await retrieval_service.query(
-            collection_name=collection_name,
-            query_text=request.question,
-            top_k=request.top_k,
+        results = retrieval_service.search_by_document(
+            query_text=payload.question,
+            document_id=str(document_id),
+            n_results=payload.top_k,
         )
 
+        # RetrievalService.search_by_document returns a list of formatted result dicts
+        # each with keys: 'id', 'text' (or 'content'), 'metadata', 'distance'.
+        # Debug: log raw retrieval results to help diagnose missing fields
+        logger.debug(f"Retrieval results raw: {results}")
+
         if not results:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No relevant content found for this question"
+            # Instead of returning a 404 (which the frontend surfaces as "Not Found"),
+            # return a structured ChatResponse indicating no relevant content was found.
+            # This is friendlier for the UI and avoids confusing 404 behavior when the
+            # document exists but the retrieval index (vector DB) has no matches.
+            logger.warning(
+                f"No retrieval results for document={document_id}; returning empty chat response")
+            return ChatResponse(
+                answer="未能找到与问题相关的文档内容。请尝试缩短或更换问题，或确认文档已正确索引/嵌入。",
+                sources=[],
+                document_id=document_id,
+                question=payload.question if hasattr(
+                    payload, 'question') else "",
+                processing_time=0.0,
             )
 
-        # Extract documents and metadata
-        retrieved_docs = results.get("documents", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
-        distances = results.get("distances", [[]])[0]
+        # Normalize results into lists of docs/metadatas/distances
+        # Some result entries may use 'text' or 'content'
+        retrieved_docs = [r.get('text') or r.get(
+            'content') or '' for r in results]
+        metadatas = [r.get('metadata', {}) for r in results]
+        distances = [r.get('distance', None) for r in results]
 
         # Prepare context
         context = "\n\n".join(retrieved_docs)
 
-        # Generate answer
-        answer = await llm_service.generate_answer(
-            question=request.question,
-            context=context,
-            conversation_history=request.conversation_history,
-            temperature=request.temperature,
+        # Generate answer using LLMService.answer_question (RAG)
+        answer_result = await llm_service.answer_question(
+            question=payload.question,
+            document_id=str(document_id),
+            n_contexts=payload.top_k,
+            language=payload.language if hasattr(
+                payload, 'language') else 'zh',
+            temperature=payload.temperature,
         )
 
-        # Prepare sources
-        sources = [
-            {
-                "content": doc[:200] + "..." if len(doc) > 200 else doc,
-                "page": meta.get("start_page", 0),
-                "chunk_index": meta.get("chunk_index", 0),
-                "similarity": 1 - dist if dist else 0,  # Convert distance to similarity
-            }
-            for doc, meta, dist in zip(retrieved_docs, metadatas, distances)
-        ]
+        # The service returns a dict with 'answer' and 'contexts'
+        answer = answer_result.get('answer') if isinstance(
+            answer_result, dict) else answer_result
+
+        # Prepare sources from original results to ensure chunk_id is present
+        sources = []
+        for r in results:
+            meta = r.get('metadata') or {}
+            text = r.get('text') or ""
+            dist = r.get('distance')
+            # Prefer explicit id from result; fallback to document_id + chunk_index
+            chunk_id = r.get('id')
+            if not chunk_id:
+                chunk_index = meta.get('chunk_index')
+                if chunk_index is not None:
+                    chunk_id = f"{document_id}_{chunk_index}"
+                else:
+                    chunk_id = ""
+
+            content_snippet = text[:200] + \
+                "..." if isinstance(text, str) and len(text) > 200 else text
+            similarity = (1 - dist) if (isinstance(dist,
+                                                   (int, float)) and dist is not None) else 0
+
+            # Build source object and include frontend-friendly aliases
+            page_val = None
+            # Prefer metadata start_page, then 'page', then first of page_numbers
+            if meta:
+                if meta.get('start_page') is not None:
+                    page_val = meta.get('start_page')
+                elif meta.get('page') is not None:
+                    page_val = meta.get('page')
+                elif meta.get('page_numbers'):
+                    try:
+                        page_nums = meta.get('page_numbers')
+                        # page_numbers might be a list or a string representation
+                        if isinstance(page_nums, (list, tuple)) and len(page_nums) > 0:
+                            page_val = int(page_nums[0])
+                        elif isinstance(page_nums, str):
+                            # attempt to parse digits
+                            import re
+                            m = re.search(r"\d+", page_nums)
+                            if m:
+                                page_val = int(m.group(0))
+                    except Exception:
+                        page_val = None
+
+            similarity_val = None
+            try:
+                if similarity is not None:
+                    similarity_val = float(similarity)
+            except Exception:
+                similarity_val = None
+
+            sources.append({
+                "chunk_id": chunk_id,
+                "content": content_snippet,
+                # original keys (keep for backward compatibility)
+                "page": page_val,
+                "similarity": similarity_val,
+                # frontend-friendly aliases expected by React UI
+                "page_number": page_val,
+                "similarity_score": similarity_val,
+            })
 
         processing_time = time.time() - start_time
 
@@ -476,7 +580,7 @@ async def chat_with_document(
             answer=answer,
             sources=sources,
             document_id=document_id,
-            question=request.question,
+            question=payload.question,
             processing_time=processing_time,
         )
 

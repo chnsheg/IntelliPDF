@@ -99,6 +99,9 @@ export interface ChunkSource {
 
 export interface ChatRequest {
     question: string;
+    conversation_history?: ChatMessage[];
+    top_k?: number;
+    temperature?: number;
     stream?: boolean;
 }
 
@@ -147,3 +150,36 @@ export interface ViewportSize {
     isTablet: boolean;
     isDesktop: boolean;
 }
+
+// ==================== Bookmark Types ====================
+
+export interface BookmarkPosition {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface Bookmark {
+    id: string;
+    user_id: string;
+    document_id: string;
+    chunk_id?: string | null;
+    selected_text: string;
+    page_number: number;
+    position: BookmarkPosition;
+    ai_summary: string;
+    title?: string | null;
+    user_notes?: string | null;
+    conversation_context?: Record<string, any> | null;
+    tags?: string[];
+    color?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface BookmarkListResponse {
+    bookmarks: Bookmark[];
+    total: number;
+}
+

@@ -37,6 +37,17 @@ from .common import (
     ErrorResponse,
     PaginationParams,
 )
+from .bookmark import (
+    BookmarkPosition,
+    BookmarkBase,
+    BookmarkCreate,
+    BookmarkUpdate,
+    BookmarkResponse,
+    BookmarkListResponse,
+    BookmarkSearchRequest,
+    BookmarkGenerateRequest,
+    BookmarkStatistics,
+)
 
 __all__ = [
     # Document schemas
@@ -66,4 +77,14 @@ __all__ = [
     "StatusResponse",
     "ErrorResponse",
     "PaginationParams",
+    # Bookmark schemas
+    "BookmarkPosition",
+    "BookmarkBase",
+    "BookmarkCreate",
+    "BookmarkUpdate",
+    "BookmarkResponse",
+    "BookmarkListResponse",
+    "BookmarkSearchRequest",
+    "BookmarkGenerateRequest",
+    "BookmarkStatistics",
 ]

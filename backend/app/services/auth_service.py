@@ -54,7 +54,7 @@ class AuthService:
         # Validate username length
         if len(username) < 3:
             raise ValidationError("Username must be at least 3 characters")
-        
+
         if len(password) < 6:
             raise ValidationError("Password must be at least 6 characters")
 
@@ -159,7 +159,7 @@ class AuthService:
             # Decode token
             payload = self.auth_utils.decode_token(token)
             user_id: str = payload.get("sub")
-            
+
             if user_id is None:
                 raise AuthenticationError("Invalid token payload")
 

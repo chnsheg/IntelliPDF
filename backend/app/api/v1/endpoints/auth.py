@@ -7,12 +7,12 @@ Handles user registration, login, and authentication operations.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.database import get_db
-from ...core.logging import get_logger
-from ...core.exceptions import AuthenticationError, ValidationError
-from ...services.auth_service import AuthService
-from ...repositories.user_repository import UserRepository
-from ...schemas.user import (
+from ....core.dependencies import get_db
+from ....core.logging import get_logger
+from ....core.exceptions import AuthenticationError, ValidationError
+from ....services.auth_service import AuthService
+from ....repositories.user_repository import UserRepository
+from ....schemas.user import (
     RegisterRequest,
     RegisterResponse,
     LoginRequest,
@@ -21,8 +21,8 @@ from ...schemas.user import (
     PasswordChangeRequest,
     MessageResponse
 )
-from ...models.db import UserModel
-from ..dependencies.auth import (
+from ....models.db import UserModel
+from ...dependencies.auth import (
     get_auth_service,
     get_current_active_user
 )
@@ -239,7 +239,7 @@ async def logout(
         Success message
     """
     logger.info(f"User logged out: {current_user.username}")
-    
+
     return MessageResponse(
         message="Logged out successfully",
         success=True

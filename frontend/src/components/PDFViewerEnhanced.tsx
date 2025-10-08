@@ -3,7 +3,8 @@
  * 支持翻页/滚动模式、快捷键、分块可视化
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { apiService } from '../services/api';
 import { Document, Page, pdfjs } from 'react-pdf';
 import {
     FiChevronLeft,
@@ -17,7 +18,6 @@ import {
     FiEye,
     FiEyeOff,
 } from 'react-icons/fi';
-import { useIsMobile } from '../hooks/useResponsive';
 import clsx from 'clsx';
 
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
@@ -45,20 +45,41 @@ interface Chunk {
     bounding_boxes?: BoundingBox[];
 }
 
+interface BookmarkType {
+    id: string;
+    page_number: number;
+    position: { x: number; y: number; width: number; height: number };
+    title?: string;
+    ai_summary: string;
+    color?: string;
+}
+
 interface PDFViewerEnhancedProps {
     fileUrl: string;
     documentId: string;
     chunks?: Chunk[];
+    bookmarks?: BookmarkType[];
+    currentPage?: number;  // External page control
     onPageChange?: (page: number, position?: { x: number; y: number }) => void;
     onChunkClick?: (chunkId: string) => void;
+    onTextSelected?: (selection: {
+        text: string;
+        pageNumber: number;
+        position: { x: number; y: number; width: number; height: number };
+    }) => void;
+    onBookmarkClick?: (bookmarkId: string) => void;
 }
 
 export default function PDFViewerEnhanced({
     fileUrl,
     documentId,
     chunks = [],
+    bookmarks = [],
+    currentPage: externalCurrentPage,
     onPageChange,
     onChunkClick,
+    onTextSelected,
+    onBookmarkClick,
 }: PDFViewerEnhancedProps) {
     // State
     const [numPages, setNumPages] = useState<number>(0);
@@ -67,11 +88,63 @@ export default function PDFViewerEnhanced({
     const [readingMode, setReadingMode] = useState<ReadingMode>('page');
     const [isImmersive, setIsImmersive] = useState(false);
     const [showChunks, setShowChunks] = useState(false);
+    const [showBookmarks, setShowBookmarks] = useState(true); // Show bookmarks by default
     const [activeChunkId, setActiveChunkId] = useState<string | null>(null);
-    const isMobile = useIsMobile();
+    const [hoveredBookmarkId, setHoveredBookmarkId] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    // Annotations state (in-memory). For persistence, we can extend to call backend.
+    const [annotations, setAnnotations] = useState<Array<{
+        id: string;
+        page: number;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        style: 'highlight' | 'underline' | 'strike' | 'tag';
+        tagId?: string;
+        text: string;
+    }>>([]);
+
+    // Load persisted annotations for this document
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            if (!documentId) return;
+            try {
+                const resp = await apiService.getAnnotationsForDocument(documentId);
+                if (!mounted) return;
+                // resp.annotations expected
+                const items = (resp.annotations || []).map((a: any) => ({
+                    id: a.id,
+                    page: a.page_number || a.page || 1,
+                    x: a.position?.x ?? 0,
+                    y: a.position?.y ?? 0,
+                    width: a.position?.width ?? 0,
+                    height: a.position?.height ?? 0,
+                    style: (a.annotation_type || 'highlight') as any,
+                    text: a.content || '',
+                }));
+                setAnnotations(items);
+            } catch (e) {
+                console.warn('Failed to load annotations', e);
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, [documentId]);
+
+    // Selection toolbar state
+    const [selectionInfo, setSelectionInfo] = useState<{
+        visible: boolean;
+        pageNumber: number | null;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        text: string;
+    }>({ visible: false, pageNumber: null, x: 0, y: 0, width: 0, height: 0, text: '' });
 
     // PDF load success
     const onDocumentLoadSuccess = useCallback(
@@ -110,6 +183,54 @@ export default function PDFViewerEnhanced({
         },
         [numPages, readingMode, onPageChange]
     );
+
+    // Listen for external page changes (e.g., from bookmark jumps)
+    useEffect(() => {
+        if (externalCurrentPage && externalCurrentPage !== pageNumber && numPages > 0) {
+            goToPage(externalCurrentPage);
+        }
+    }, [externalCurrentPage, pageNumber, numPages, goToPage]);
+
+    // Listen for global jump events dispatched by ChatPanel or other components
+    useEffect(() => {
+        const handleJumpToPage = (e: Event) => {
+            try {
+                // CustomEvent with detail { page_number }
+                const ce = e as CustomEvent;
+                const page = Number(ce.detail?.page_number);
+                if (Number.isFinite(page)) {
+                    goToPage(page);
+                }
+            } catch (err) {
+                console.warn('Invalid jumpToPage event', err);
+            }
+        };
+
+        const handleJumpToChunk = (e: Event) => {
+            try {
+                const ce = e as CustomEvent;
+                const chunkId = ce.detail?.chunk_id;
+                if (chunkId) {
+                    // If chunks metadata available, try to find chunk and jump to its start_page
+                    const found = chunks.find(c => c.id === chunkId);
+                    if (found) {
+                        goToPage(found.start_page || 1);
+                        setActiveChunkId(found.id);
+                        onChunkClick?.(found.id);
+                    }
+                }
+            } catch (err) {
+                console.warn('Invalid jumpToChunk event', err);
+            }
+        };
+
+        window.addEventListener('jumpToPage', handleJumpToPage as EventListener);
+        window.addEventListener('jumpToChunk', handleJumpToChunk as EventListener);
+        return () => {
+            window.removeEventListener('jumpToPage', handleJumpToPage as EventListener);
+            window.removeEventListener('jumpToChunk', handleJumpToChunk as EventListener);
+        };
+    }, [chunks, goToPage, onChunkClick]);
 
     // Zoom
     const zoomIn = useCallback(() => {
@@ -232,12 +353,164 @@ export default function PDFViewerEnhanced({
         fitToWidth,
     ]);
 
-    // Get chunks for current page
-    const currentPageChunks = useMemo(() => {
-        return chunks.filter(
-            (chunk) => chunk.start_page <= pageNumber && chunk.end_page >= pageNumber
-        );
-    }, [chunks, pageNumber]);
+    // Handle text selection
+    useEffect(() => {
+        if (!onTextSelected) return;
+
+        const handleSelection = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed) return;
+
+            const selectedText = selection.toString().trim();
+            if (selectedText.length < 3) return; // Ignore very short selections
+
+            // Get selection rect relative to page
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+
+            // Get container rect for relative positioning
+            const containerRect = containerRef.current?.getBoundingClientRect();
+            if (!containerRect) return;
+
+            // Calculate relative position
+            const position = {
+                x: rect.left - containerRect.left,
+                y: rect.top - containerRect.top,
+                width: rect.width,
+                height: rect.height,
+            };
+
+            // Trigger callback
+            onTextSelected({
+                text: selectedText,
+                pageNumber: pageNumber,
+                position: position,
+            });
+            // Show selection toolbar near selection
+            setSelectionInfo({
+                visible: true,
+                pageNumber: pageNumber,
+                x: position.x,
+                y: position.y,
+                width: position.width,
+                height: position.height,
+                text: selectedText,
+            });
+        };
+
+        // Listen for mouseup event (after text selection)
+        document.addEventListener('mouseup', handleSelection);
+        return () => document.removeEventListener('mouseup', handleSelection);
+    }, [onTextSelected, pageNumber]);
+
+    // Hide selection toolbar on scroll or click elsewhere
+    useEffect(() => {
+        const hide = () => setSelectionInfo(prev => ({ ...prev, visible: false }));
+        const onDown = (e: MouseEvent) => {
+            const el = e.target as HTMLElement;
+            if (el && el.closest && el.closest('.selection-toolbar')) return;
+            hide();
+        };
+        window.addEventListener('scroll', hide, true);
+        window.addEventListener('mousedown', onDown);
+        return () => {
+            window.removeEventListener('scroll', hide, true);
+            window.removeEventListener('mousedown', onDown);
+        };
+    }, []);
+
+    // Helper to create annotation and emit event (optimistic + persist)
+    const createAnnotation = useCallback(async (style: 'highlight' | 'underline' | 'strike' | 'tag') => {
+        if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
+        const id = `anno_${Date.now()}`;
+        const anno = {
+            id,
+            page: selectionInfo.pageNumber,
+            x: selectionInfo.x,
+            y: selectionInfo.y,
+            width: selectionInfo.width,
+            height: selectionInfo.height,
+            style,
+            text: selectionInfo.text,
+        };
+
+        // Optimistic update
+        setAnnotations(prev => [...prev, anno]);
+
+        // Prepare payload for backend
+        const payload = {
+            document_id: documentId,
+            user_id: localStorage.getItem('user_id') || 'anonymous',
+            annotation_type: style,
+            page_number: selectionInfo.pageNumber,
+            position: {
+                x: selectionInfo.x,
+                y: selectionInfo.y,
+                width: selectionInfo.width,
+                height: selectionInfo.height,
+            },
+            color: style === 'highlight' ? '#FCD34D' : undefined,
+            content: selectionInfo.text,
+            tags: [],
+        };
+
+        try {
+            const saved = await apiService.createAnnotation(payload);
+            // Replace optimistic id with real id
+            setAnnotations(prev => prev.map(a => a.id === id ? { ...a, id: saved.id } : a));
+            // emit an event so other components (e.g., BookmarkPanel) can listen
+            try {
+                window.dispatchEvent(new CustomEvent('annotationCreated', { detail: saved }));
+            } catch (e) {
+                console.warn('Failed to dispatch annotationCreated', e);
+            }
+        } catch (err) {
+            console.error('Failed to save annotation', err);
+            // leave optimistic annotation but mark as unsynced (not implemented UI)
+        }
+
+        // hide toolbar after creation
+        setSelectionInfo(prev => ({ ...prev, visible: false }));
+    }, [selectionInfo, documentId]);
+
+    // Dispatch AI question event - 设置对话上下文
+    const dispatchAIQuestion = useCallback(() => {
+        if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
+        
+        // 通知父组件选中文本，设置为AI对话的上下文
+        if (onTextSelected) {
+            onTextSelected({
+                text: selectionInfo.text,
+                pageNumber: selectionInfo.pageNumber,
+                position: {
+                    x: selectionInfo.x,
+                    y: selectionInfo.y,
+                    width: selectionInfo.width,
+                    height: selectionInfo.height
+                }
+            });
+        }
+        
+        // 触发AI问题事件，打开聊天面板并设置上下文
+        const payload = {
+            documentId,
+            page_number: selectionInfo.pageNumber,
+            selected_text: selectionInfo.text,
+            position: {
+                x: selectionInfo.x,
+                y: selectionInfo.y,
+                width: selectionInfo.width,
+                height: selectionInfo.height
+            },
+            action: 'set_context'  // 标记这是设置上下文，而不是直接提问
+        };
+        try {
+            window.dispatchEvent(new CustomEvent('aiQuestion', { detail: payload }));
+        } catch (e) {
+            console.warn('Failed to dispatch aiQuestion', e);
+        }
+        setSelectionInfo(prev => ({ ...prev, visible: false }));
+    }, [selectionInfo, documentId, onTextSelected]);
 
     // Render chunk overlays
     const renderChunkOverlays = useCallback(
@@ -276,6 +549,82 @@ export default function PDFViewerEnhanced({
             });
         },
         [chunks, showChunks, activeChunkId, onChunkClick]
+    );
+
+    // Render bookmark overlays
+    const renderBookmarkOverlays = useCallback(
+        (pageNum: number) => {
+            if (!showBookmarks) return null;
+
+            const pageBookmarks = bookmarks.filter(b => b.page_number === pageNum);
+
+            return pageBookmarks.map((bookmark) => {
+                const isHovered = hoveredBookmarkId === bookmark.id;
+                const color = bookmark.color || '#FCD34D';
+
+                // Skip bookmark if position is not defined
+                if (!bookmark.position) {
+                    console.warn('Bookmark missing position:', bookmark.id);
+                    return null;
+                }
+
+                return (
+                    <div key={bookmark.id} className="relative">
+                        {/* Bookmark highlight */}
+                        <div
+                            className={clsx(
+                                'absolute cursor-pointer transition-all duration-300',
+                                'border-2 rounded',
+                                isHovered ? 'shadow-lg z-20' : 'z-10'
+                            )}
+                            style={{
+                                left: bookmark.position.x,
+                                top: bookmark.position.y,
+                                width: bookmark.position.width,
+                                height: bookmark.position.height,
+                                backgroundColor: `${color}40`, // 40 is opacity in hex
+                                borderColor: color,
+                                borderWidth: isHovered ? '3px' : '2px',
+                            }}
+                            onMouseEnter={() => setHoveredBookmarkId(bookmark.id)}
+                            onMouseLeave={() => setHoveredBookmarkId(null)}
+                            onClick={() => onBookmarkClick?.(bookmark.id)}
+                            title={bookmark.title || bookmark.ai_summary}
+                        >
+                            {/* Bookmark icon */}
+                            <div
+                                className="absolute -top-3 -left-1 text-xl"
+                                style={{ color }}
+                            >
+                                🔖
+                            </div>
+                        </div>
+
+                        {/* Tooltip on hover */}
+                        {isHovered && (
+                            <div
+                                className="absolute z-30 bg-white rounded-lg shadow-xl border border-gray-200 p-3 max-w-xs"
+                                style={{
+                                    left: bookmark.position.x,
+                                    top: bookmark.position.y + bookmark.position.height + 10,
+                                }}
+                            >
+                                <div className="text-sm font-medium text-gray-900 mb-1">
+                                    {bookmark.title || '未命名书签'}
+                                </div>
+                                <div className="text-xs text-gray-600 line-clamp-3">
+                                    {bookmark.ai_summary}
+                                </div>
+                                <div className="mt-2 text-xs text-gray-400">
+                                    点击查看详情
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            });
+        },
+        [bookmarks, showBookmarks, hoveredBookmarkId, onBookmarkClick]
     );
 
     // Render toolbar
@@ -370,23 +719,6 @@ export default function PDFViewerEnhanced({
         </div>
     );
 
-    // Render keyboard shortcuts help
-    const renderShortcutsHelp = () => (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-3 rounded-lg opacity-0 hover:opacity-100 transition-opacity z-50">
-            <div className="font-bold mb-2">快捷键</div>
-            <div className="space-y-1">
-                <div>← / → : 上一页/下一页</div>
-                <div>Space: 下一页 (Shift+Space: 上一页)</div>
-                <div>Home / End: 首页/末页</div>
-                <div>+/-: 放大/缩小</div>
-                <div>0: 适应宽度</div>
-                <div>F / F11: 全屏</div>
-                <div>M: 切换阅读模式</div>
-                <div>Ctrl+D: 显示分块</div>
-            </div>
-        </div>
-    );
-
     return (
         <div
             ref={containerRef}
@@ -420,9 +752,30 @@ export default function PDFViewerEnhanced({
                                     renderAnnotationLayer={true}
                                     className="shadow-2xl"
                                 />
-                                <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute inset-0 pointer-events-auto">
                                     {renderChunkOverlays(pageNumber)}
+                                    {renderBookmarkOverlays(pageNumber)}
+                                    {annotations.filter(a => a.page === pageNumber).map(a => (
+                                        <div key={a.id} className="absolute pointer-events-none"
+                                            style={{
+                                                left: a.x, top: a.y, width: a.width, height: a.height,
+                                                background: a.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
+                                                textDecoration: a.style === 'underline' ? 'underline' : a.style === 'strike' ? 'line-through' : undefined,
+                                                border: a.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
+                                            }} />
+                                    ))}
                                 </div>
+                                {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (
+                                    <div className="selection-toolbar absolute" style={{ left: selectionInfo.x, top: Math.max(selectionInfo.y - 44, 4), zIndex: 60 }}>
+                                        <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
+                                            <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
+                                            <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
+                                            <button onClick={() => createAnnotation('strike')} className="text-xs px-2 py-0.5">删除线</button>
+                                            <button onClick={() => createAnnotation('tag')} className="text-xs px-2 py-0.5">生成标签</button>
+                                            <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             // Scroll mode: all pages
@@ -442,8 +795,29 @@ export default function PDFViewerEnhanced({
                                             renderAnnotationLayer={true}
                                             className="shadow-lg"
                                         />
-                                        <div className="absolute inset-0 pointer-events-none">
+                                        <div className="absolute inset-0 pointer-events-auto">
                                             {renderChunkOverlays(pageNum)}
+                                            {renderBookmarkOverlays(pageNum)}
+                                            {annotations.filter(a => a.page === pageNum).map(a => (
+                                                <div key={a.id} className="absolute pointer-events-none"
+                                                    style={{
+                                                        left: a.x, top: a.y, width: a.width, height: a.height,
+                                                        background: a.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
+                                                        textDecoration: a.style === 'underline' ? 'underline' : a.style === 'strike' ? 'line-through' : undefined,
+                                                        border: a.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
+                                                    }} />
+                                            ))}
+                                            {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (
+                                                <div className="selection-toolbar absolute" style={{ left: selectionInfo.x, top: Math.max(selectionInfo.y - 44, 4), zIndex: 60 }}>
+                                                    <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
+                                                        <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
+                                                        <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
+                                                        <button onClick={() => createAnnotation('strike')} className="text-xs px-2 py-0.5">删除线</button>
+                                                        <button onClick={() => createAnnotation('tag')} className="text-xs px-2 py-0.5">生成标签</button>
+                                                        <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="text-center text-sm text-gray-500 mt-2">
                                             第 {pageNum} 页
@@ -455,8 +829,6 @@ export default function PDFViewerEnhanced({
                     </Document>
                 </div>
             </div>
-
-            {!isImmersive && renderShortcutsHelp()}
         </div>
     );
 }

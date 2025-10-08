@@ -38,11 +38,15 @@ async def get_graph_data(
 
     nodes = []
     for doc in documents:
+        # Extract title from metadata JSON or use filename
+        title = None
+        if doc.doc_metadata and isinstance(doc.doc_metadata, dict):
+            title = doc.doc_metadata.get("title")
+
         nodes.append({
             "id": doc.id,
-            "label": doc.title or doc.original_filename,
+            "label": title or doc.filename,
             "type": "document",
-            "pages": doc.total_pages,
             "size": doc.file_size,
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
         })

@@ -40,12 +40,12 @@ class UserRepository(BaseRepository[UserModel]):
             stmt = select(UserModel).where(UserModel.username == username)
             result = await self.session.execute(stmt)
             user = result.scalar_one_or_none()
-            
+
             if user:
                 logger.info(f"Found user by username: {username}")
             else:
                 logger.debug(f"User not found by username: {username}")
-            
+
             return user
         except Exception as e:
             logger.error(f"Error getting user by username: {e}")
@@ -65,12 +65,12 @@ class UserRepository(BaseRepository[UserModel]):
             stmt = select(UserModel).where(UserModel.email == email)
             result = await self.session.execute(stmt)
             user = result.scalar_one_or_none()
-            
+
             if user:
                 logger.info(f"Found user by email: {email}")
             else:
                 logger.debug(f"User not found by email: {email}")
-            
+
             return user
         except Exception as e:
             logger.error(f"Error getting user by email: {e}")
@@ -113,15 +113,15 @@ class UserRepository(BaseRepository[UserModel]):
             True if updated, False otherwise
         """
         from datetime import datetime
-        
+
         try:
             user = await self.get_by_id(user_id)
             if not user:
                 return False
-            
+
             user.last_login_at = datetime.utcnow()
             await self.session.flush()
-            
+
             logger.info(f"Updated last login for user: {user_id}")
             return True
         except Exception as e:
@@ -142,10 +142,10 @@ class UserRepository(BaseRepository[UserModel]):
             user = await self.get_by_id(user_id)
             if not user:
                 return False
-            
+
             user.is_active = True
             await self.session.flush()
-            
+
             logger.info(f"Activated user: {user_id}")
             return True
         except Exception as e:
@@ -166,10 +166,10 @@ class UserRepository(BaseRepository[UserModel]):
             user = await self.get_by_id(user_id)
             if not user:
                 return False
-            
+
             user.is_active = False
             await self.session.flush()
-            
+
             logger.info(f"Deactivated user: {user_id}")
             return True
         except Exception as e:

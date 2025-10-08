@@ -6,6 +6,10 @@ from .models_simple import (
     DocumentModel,
     ChunkModel,
     UserModel,
+    BookmarkModel,
+    AnnotationModel,
+    TagModel,
+    AIQuestionModel,
 )
 
 __all__ = [
@@ -13,4 +17,8 @@ __all__ = [
     "DocumentModel",
     "ChunkModel",
     "UserModel",
+    "BookmarkModel",
+    "AnnotationModel",
+    "TagModel",
+    "AIQuestionModel",
 ]

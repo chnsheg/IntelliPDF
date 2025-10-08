@@ -4,7 +4,7 @@ Chat-related Pydantic schemas.
 This module contains schemas for chat/RAG interactions.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 from uuid import UUID
 
@@ -15,10 +15,25 @@ class Message(BaseModel):
     """
     Chat message schema.
     """
-    role: str = Field(..., description="Message role (user/assistant)")
+    role: Literal["user", "assistant", "system"] = Field(
+        ..., description="Message role (user/assistant/system)")
     content: str = Field(..., min_length=1, description="Message content")
     timestamp: Optional[datetime] = Field(
         None, description="Message timestamp")
+
+
+class ChunkSource(BaseModel):
+    """
+    Source chunk schema.
+    """
+    chunk_id: str = Field(..., description="Chunk identifier")
+    content: str = Field(..., description="Chunk content")
+    page: Optional[int] = Field(None, description="Page number")
+    similarity: Optional[float] = Field(None, description="Similarity score")
+    # Frontend-friendly aliases (kept for compatibility)
+    page_number: Optional[int] = Field(None, description="Page number (alias)")
+    similarity_score: Optional[float] = Field(
+        None, description="Similarity score (alias)")
 
 
 class ChatRequest(BaseModel):
@@ -28,13 +43,13 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000,
                           description="User question")
     conversation_history: Optional[List[Message]] = Field(
-        None,
+        default=None,
         description="Previous conversation messages for context"
     )
     top_k: int = Field(
-        5, ge=1, le=20, description="Number of chunks to retrieve")
+        default=5, ge=1, le=20, description="Number of chunks to retrieve")
     temperature: float = Field(
-        0.7, ge=0.0, le=2.0, description="LLM temperature")
+        default=0.7, ge=0.0, le=2.0, description="LLM temperature")
 
     class Config:
         json_schema_extra = {
@@ -63,8 +78,10 @@ class ChatResponse(BaseModel):
     Response schema for chat endpoint.
     """
     answer: str = Field(..., description="Generated answer")
-    sources: List[dict] = Field(...,
-                                description="Source chunks used for answer")
+    sources: List[ChunkSource] = Field(
+        default_factory=list,
+        description="Source chunks used for answer"
+    )
     document_id: UUID = Field(..., description="Document ID")
     question: str = Field(..., description="Original question")
     processing_time: float = Field(...,

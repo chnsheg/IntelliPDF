@@ -270,6 +270,16 @@ class BookmarkError(BusinessLogicError):
     pass
 
 
+class BookmarkNotFoundError(BookmarkError):
+    """Raised when bookmark is not found."""
+    pass
+
+
+class UnauthorizedError(BookmarkError):
+    """Raised when user is not authorized for bookmark operation."""
+    pass
+
+
 # ==================== External Service Exceptions ====================
 
 class ExternalServiceError(IntelliPDFException):

@@ -2,7 +2,7 @@
  * Modern AI Chat Panel Component with gradients and animations
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { FiSend, FiX, FiCopy, FiCheck, FiExternalLink } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
@@ -18,14 +18,35 @@ import { DotsLoader } from './Loading';
 interface ChatPanelProps {
     documentId: string;
     currentPage?: number;
+    selectedText?: string;
+    selectedTextPosition?: { x: number; y: number; width: number; height: number };
     onClose?: () => void;
+    onBookmarkCreated?: () => void;
 }
 
-export default function ChatPanel({ documentId, currentPage = 1, onClose }: ChatPanelProps) {
+export default function ChatPanel({ 
+    documentId, 
+    currentPage = 1, 
+    selectedText,
+    selectedTextPosition,
+    onClose,
+    onBookmarkCreated
+}: ChatPanelProps) {
     const [inputValue, setInputValue] = useState('');
     const [contextChunks, setContextChunks] = useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { messages, addMessage, setLoading, isLoading } = useChatStore();
+    
+    // 话题上下文管理
+    // topicContext: 当前话题的上下文（选中的文本）
+    // topicStartIndex: 当前话题开始的消息索引
+    const [topicContext, setTopicContext] = useState<{
+        text: string;
+        pageNumber: number;
+        position: { x: number; y: number; width: number; height: number };
+        chunkContext?: string[];
+    } | null>(null);
+    const [topicStartIndex, setTopicStartIndex] = useState<number>(0);
 
     // Auto scroll to bottom
     const scrollToBottom = () => {
@@ -109,6 +130,93 @@ export default function ChatPanel({ documentId, currentPage = 1, onClose }: Chat
         chatMutation.mutate(question);
         setInputValue('');
     };
+
+    // 设置话题上下文（仅在点击AI提问按钮时调用）
+    const setTopicFromSelection = useCallback((text: string, page: number, position: any, context?: string[]) => {
+        // 如果选中的文本发生变化，则设置新话题
+        if (!topicContext || topicContext.text !== text) {
+            setTopicContext({
+                text,
+                pageNumber: page,
+                position,
+                chunkContext: context || contextChunks,
+            });
+            setTopicStartIndex(messages.length);
+        }
+    }, [topicContext, contextChunks, messages.length]);
+
+    // 清除话题上下文
+    const clearTopicContext = useCallback(() => {
+        setTopicContext(null);
+        setTopicStartIndex(messages.length);
+    }, [messages.length]);
+
+    // Listen for setTopicContext events from PDFViewerEnhanced
+    useEffect(() => {
+        const handleSetTopicContext = (e: Event) => {
+            const ce = e as CustomEvent;
+            const detail = ce.detail || {};
+            const text = detail.selected_text || '';
+            const page = Number(detail.page_number) || currentPage;
+            const position = detail.position;
+            const context = detail.chunk_context;
+            
+            if (text && page) {
+                setTopicFromSelection(text, page, position, context);
+            }
+        };
+
+        window.addEventListener('setTopicContext', handleSetTopicContext);
+        return () => window.removeEventListener('setTopicContext', handleSetTopicContext);
+    }, [setTopicFromSelection, currentPage]);
+
+    // Handle bookmark generation - 基于当前话题的对话历史
+    useEffect(() => {
+        const handleGenerateBookmark = async (e: Event) => {
+            try {
+                const ce = e as CustomEvent;
+                const detail = ce.detail || {};
+                
+                if (detail.documentId !== documentId) return;
+
+                // 只使用当前话题的对话历史（从topicStartIndex开始）
+                const topicMessages = messages.slice(topicStartIndex);
+                
+                if (topicMessages.length === 0) {
+                    console.warn('No conversation in current topic');
+                    return;
+                }
+
+                // 准备对话历史
+                const conversationHistory = topicMessages.map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                }));
+
+                // 调用API生成书签
+                const response = await apiService.generateBookmark({
+                    document_id: documentId,
+                    conversation_history: conversationHistory,
+                    context_text: topicContext?.text,
+                    page_number: topicContext?.pageNumber || currentPage
+                });
+
+                // 生成书签后，可以选择清除当前话题或保持
+                // clearTopicContext(); // 可选：生成后开始新话题
+                
+                if (onBookmarkCreated) {
+                    onBookmarkCreated();
+                }
+
+                console.log('Bookmark generated:', response);
+            } catch (error) {
+                console.error('Failed to generate bookmark:', error);
+            }
+        };
+
+        window.addEventListener('generateBookmark', handleGenerateBookmark);
+        return () => window.removeEventListener('generateBookmark', handleGenerateBookmark);
+    }, [documentId, messages, topicStartIndex, topicContext, currentPage, onBookmarkCreated]);
 
     return (
         <div className="h-full flex flex-col">
@@ -202,6 +310,55 @@ export default function ChatPanel({ documentId, currentPage = 1, onClose }: Chat
                 onSubmit={handleSubmit}
                 className="glass backdrop-blur-xl bg-white/80 border-t border-gray-200 p-4"
             >
+                {/* 话题上下文显示区域 */}
+                {topicContext && (
+                    <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-300 rounded-xl relative">
+                        {/* 关闭按钮 */}
+                        <button
+                            type="button"
+                            onClick={clearTopicContext}
+                            className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded transition-colors"
+                            title="关闭话题上下文，代表对整个文章提问"
+                        >
+                            ✕
+                        </button>
+                        
+                        <div className="flex items-center justify-between mb-1 pr-6">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-blue-700">📌 当前话题</span>
+                                <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">
+                                    {messages.length - topicStartIndex} 条对话
+                                </span>
+                            </div>
+                            <span className="text-xs text-blue-600">第 {topicContext.pageNumber} 页</span>
+                        </div>
+                        <p className="text-sm text-gray-700 line-clamp-2 mb-1">{topicContext.text}</p>
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs text-gray-500">💡 当前对话都围绕这段文本展开</p>
+                        </div>
+                    </div>
+                )}
+                
+                {/* 生成书签按钮 */}
+                {messages.length > topicStartIndex && (
+                    <div className="mb-3 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.dispatchEvent(new CustomEvent('generateBookmark', {
+                                    detail: { documentId }
+                                }));
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center gap-2 text-sm font-medium shadow-md hover:shadow-lg"
+                            title={`根据当前话题的 ${messages.length - topicStartIndex} 条对话生成AI书签`}
+                        >
+                            <span>📑</span>
+                            <span>生成AI书签</span>
+                            <span className="text-xs opacity-80">({messages.length - topicStartIndex}条对话)</span>
+                        </button>
+                    </div>
+                )}
+                
                 <div className="flex gap-3">
                     <input
                         type="text"
@@ -315,6 +472,15 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                         {message.sources.map((source, idx) => (
                             <div
                                 key={idx}
+                                onClick={() => {
+                                    // 触发页面跳转事件
+                                    const pageNum = source.page_number || (source as any).page;
+                                    if (pageNum) {
+                                        window.dispatchEvent(new CustomEvent('jumpToPage', {
+                                            detail: { page_number: pageNum }
+                                        }));
+                                    }
+                                }}
                                 className={clsx(
                                     'bg-white rounded-xl p-3 border border-gray-200',
                                     'transition-all duration-300 hover:shadow-md hover:border-primary-300',
@@ -323,7 +489,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-medium text-primary-600 flex items-center gap-1">
-                                        📄 第 {source.page_number} 页
+                                        📄 第 {source.page_number || (source as any).page} 页
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <div className={clsx(

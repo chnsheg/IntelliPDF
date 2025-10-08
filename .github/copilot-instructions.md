@@ -1,7 +1,11 @@
 # IntelliPDF AI Agent Instructions
 
 ## Project Overview
-IntelliPDF transforms static PDFs into interactive AI-powered knowledge graphs. **Domain-Driven Design (DDD)** architecture with strict separation: domain logic in `services/`, data access in `repositories/`, persistence in `models/db/`.
+IntelliPDF transforms static PDFs into interactive AI-powered knowledge graphs using AI. **Monorepo structure**: `backend/` (FastAPI + Python 3.11) and `frontend/` (React 18 + TypeScript + Vite).
+
+**Architecture**: Domain-Driven Design (DDD) with strict separation: domain logic in `services/`, data access in `repositories/`, persistence in `models/db/`.
+
+**Key Tech**: FastAPI, SQLAlchemy 2.0 (async), ChromaDB (vectors), Gemini API (LLM), PyMuPDF (parsing), React 18, TailwindCSS.
 
 ## Critical Architecture Patterns
 
@@ -11,9 +15,10 @@ IntelliPDF transforms static PDFs into interactive AI-powered knowledge graphs. 
 from ..models.domain.document import Document, DocumentStatus
 
 # Database Models (models/db/models_simple.py) - ORM persistence only
-from ..models.db import DocumentModel, ChunkModel  # Import via __init__.py
+from ..models.db import DocumentModel, ChunkModel  # ALWAYS import via __init__.py
 ```
 **Why**: Decouples business rules from database schema. Services work with domain models, repositories translate to/from DB models.
+**Critical**: SQLite backend uses String(36) for UUIDs. Convert `UUID` objects to strings in queries: `str(id)` before database lookups.
 
 ### 2. Repository Pattern (Generic Typed Base)
 ```python
@@ -28,17 +33,22 @@ class DocumentRepository(BaseRepository[DocumentModel]):
 ```python
 # In endpoints/documents.py
 async def get_document_service(db: AsyncSession = Depends(get_db)) -> DocumentProcessingService:
+    """Dependency function constructing service with all dependencies"""
     return DocumentProcessingService(
         document_repo=DocumentRepository(db),
         chunk_repo=ChunkRepository(db),
         embedding_service=EmbeddingsService(),
+        retrieval_service=RetrievalService(),
     )
 
 @router.post("/upload")
 async def upload(file: UploadFile, service: DocumentProcessingService = Depends(get_document_service)):
     return await service.process_document(file)
 ```
-**Critical**: Services are stateless, constructed per-request. Database session lifecycle managed by FastAPI dependencies.
+**Critical**: 
+- Services are stateless, constructed per-request via `Depends()`
+- Database session lifecycle managed by FastAPI dependencies
+- Create `get_*_service()` functions in endpoint files, NOT in services themselves
 
 ### 4. Configuration (Singleton Pattern)
 ```python
@@ -113,15 +123,21 @@ Get-ChildItem -Path . -Filter "__pycache__" -Recurse | Remove-Item -Recurse -For
 
 ### Import Style (Strict Rules)
 ```python
-# ✅ Correct - Relative imports within app/
+# ✅ Correct - Relative imports within app/, absolute from main.py only
+# Inside app/ modules:
 from ..core.config import get_settings
-from ..models.db import DocumentModel  # Via __init__.py
+from ..models.db import DocumentModel  # MUST import via __init__.py
 from ..infrastructure.ai.gemini_client import GeminiClient
 
-# ❌ Wrong - Absolute imports or direct file imports
+# From root (main.py, alembic/env.py):
 from app.core.config import get_settings
-from app.models.db.models_simple import DocumentModel
+from app.models.db import DocumentModel
+
+# ❌ Wrong - Direct file imports bypass __init__.py exports
+from ..models.db.models_simple import DocumentModel  # NEVER do this
+from app.models.db.models_simple import DocumentModel  # NEVER do this
 ```
+**Why**: `__init__.py` controls public API and switches between SQLite/PostgreSQL models.
 
 ### Async Everything
 ```python
@@ -229,5 +245,6 @@ class ApiService {
 - Large PDFs (>50MB) may timeout on first parse
 - Gemini rate limits not yet implemented
 - No authentication (planned)
+- SQLite UUIDs stored as String(36) - always convert UUID objects to strings in queries
 
 **Progress Tracking**: See `PROJECT_TODO.md` for roadmap and `ARCHITECTURE.md` for deep-dive design docs.

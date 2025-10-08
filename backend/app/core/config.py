@@ -259,12 +259,14 @@ class Settings(BaseSettings):
         description="API request timeout in seconds"
     )
 
+    # Keep a single settings config. Allow unknown/extra env vars to avoid startup
+    # failures when .env contains additional keys used by other environments/tools.
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="forbid",  # Prevent extra fields
-        validate_default=True
+        extra="ignore",
+        validate_default=True,
     )
 
     @validator("upload_dir", "chroma_db_path", pre=True)

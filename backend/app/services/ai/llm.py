@@ -61,8 +61,20 @@ class LLMService:
 4. 可以引用文档中的原文来支持你的回答
 5. 如果问题不清楚，可以要求用户澄清"""
 
+            # Defensive: chunk may have 'text' or 'content' key depending on source
+            def _chunk_text(chunk):
+                if not chunk:
+                    return ''
+                if isinstance(chunk, dict):
+                    return chunk.get('text') or chunk.get('content') or ''
+                # Fallback for unexpected structures
+                try:
+                    return getattr(chunk, 'text', None) or getattr(chunk, 'content', None) or ''
+                except Exception:
+                    return ''
+
             context_text = "\n\n---\n\n".join([
-                f"【文档片段 {i+1}】\n{chunk['text']}"
+                f"【文档片段 {i+1}】\n{_chunk_text(chunk)}"
                 for i, chunk in enumerate(context_chunks)
             ])
 
@@ -168,17 +180,37 @@ Rules:
             )
 
             # 4. 构建结果
+            # Build contexts defensively
+            contexts = []
+            for chunk in context_chunks:
+                if not chunk:
+                    continue
+                text = None
+                metadata = {}
+                distance = None
+                if isinstance(chunk, dict):
+                    text = chunk.get('text') or chunk.get('content') or ''
+                    metadata = chunk.get('metadata') or {}
+                    distance = chunk.get('distance')
+                else:
+                    # try attribute access
+                    text = getattr(chunk, 'text', None) or getattr(
+                        chunk, 'content', None) or ''
+                    metadata = getattr(chunk, 'metadata', None) or {}
+
+                snippet = text[:200] + \
+                    '...' if isinstance(text, str) and len(
+                        text) > 200 else text
+                contexts.append({
+                    'text': snippet,
+                    'metadata': metadata,
+                    'relevance_score': 1 - distance if distance is not None else None
+                })
+
             result = {
                 'answer': response,
-                'contexts': [
-                    {
-                        'text': chunk['text'][:200] + '...' if len(chunk['text']) > 200 else chunk['text'],
-                        'metadata': chunk['metadata'],
-                        'relevance_score': 1 - chunk.get('distance', 0) if chunk.get('distance') is not None else None
-                    }
-                    for chunk in context_chunks
-                ],
-                'source_count': len(context_chunks),
+                'contexts': contexts,
+                'source_count': len(contexts),
                 'question': question
             }
 
@@ -209,12 +241,29 @@ Rules:
             对话结果
         """
         try:
+            # Normalize messages: support pydantic Message models or dicts
+            normalized_msgs = []
+            if messages:
+                for msg in messages:
+                    if hasattr(msg, 'dict'):
+                        m = msg.dict()
+                    elif isinstance(msg, dict):
+                        m = msg
+                    else:
+                        # Fallback: try attribute access
+                        m = {
+                            'role': getattr(msg, 'role', None),
+                            'content': getattr(msg, 'content', None)
+                        }
+                    normalized_msgs.append(m)
+
             # 获取最后一个用户消息
-            user_messages = [msg for msg in messages if msg['role'] == 'user']
+            user_messages = [
+                m for m in normalized_msgs if m.get('role') == 'user']
             if not user_messages:
                 raise AIServiceError("No user message found")
 
-            last_question = user_messages[-1]['content']
+            last_question = user_messages[-1].get('content')
 
             # 使用 RAG 回答
             result = await self.answer_question(

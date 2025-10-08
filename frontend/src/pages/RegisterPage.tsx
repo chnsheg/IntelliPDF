@@ -12,7 +12,7 @@ import { apiService } from '../services/api';
 export default function RegisterPage() {
     const navigate = useNavigate();
     const { login, setLoading } = useAuthStore();
-    
+
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -56,7 +56,7 @@ export default function RegisterPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        
+
         // Validate form
         const validationError = validateForm();
         if (validationError) {

@@ -12,7 +12,7 @@ import { apiService } from '../services/api';
 export default function LoginPage() {
     const navigate = useNavigate();
     const { login, setLoading } = useAuthStore();
-    
+
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -29,7 +29,7 @@ export default function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        
+
         // Validation
         if (!formData.username || !formData.password) {
             setError('Please fill in all fields');

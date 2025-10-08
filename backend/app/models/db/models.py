@@ -557,6 +557,106 @@ class BookmarkModel(Base, TimestampMixin):
         return f"<Bookmark(id={self.id}, title={self.title})>"
 
 
+class AnnotationType(str):
+    """Simple enum substitute for annotation types."""
+
+    HIGHLIGHT = "highlight"
+    UNDERLINE = "underline"
+    STRIKE = "strike"
+    TAG = "tag"
+    NOTE = "note"
+
+
+class AnnotationModel(Base, TimestampMixin):
+    """
+    Annotation database model.
+
+    Stores user-created annotations (highlights, underlines, tags, notes) on documents.
+    """
+
+    __tablename__ = "annotations"
+
+    # Primary Key
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        comment="Annotation unique identifier"
+    )
+
+    # Foreign Key
+    document_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Document ID"
+    )
+
+    # Owner
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+        comment="Owner user ID"
+    )
+
+    # Annotation Data
+    annotation_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        comment="Type of annotation"
+    )
+    page_number: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Page number where annotation is located"
+    )
+    position: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Bounding box or position data"
+    )
+    color: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Color used for highlight/tag"
+    )
+    content: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User note or tagged text"
+    )
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String),
+        nullable=False,
+        default=list,
+        comment="User provided tags"
+    )
+
+    # Metadata
+    annotation_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSON,
+        nullable=False,
+        default=dict,
+        comment="Additional annotation metadata"
+    )
+
+    # Relationships
+    document: Mapped["DocumentModel"] = relationship(
+        "DocumentModel",
+        back_populates="bookmarks"
+    )
+
+    __table_args__ = (
+        Index("idx_annotations_document_created", "document_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Annotation(id={self.id}, type={self.annotation_type}, page={self.page_number})>"
+
+
 class ChatSessionModel(Base, TimestampMixin):
     """
     Chat session database model.

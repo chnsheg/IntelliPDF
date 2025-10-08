@@ -273,12 +273,12 @@ class ApiService {
         full_name?: string;
     }): Promise<{ access_token: string; token_type: string; user: any }> {
         const { data } = await this.client.post('/auth/register', userData);
-        
+
         // Store token in localStorage
         if (data.access_token) {
             localStorage.setItem('auth_token', data.access_token);
         }
-        
+
         return data;
     }
 
@@ -290,12 +290,12 @@ class ApiService {
         password: string;
     }): Promise<{ access_token: string; token_type: string; user: any }> {
         const { data } = await this.client.post('/auth/login', credentials);
-        
+
         // Store token in localStorage
         if (data.access_token) {
             localStorage.setItem('auth_token', data.access_token);
         }
-        
+
         return data;
     }
 
@@ -328,6 +328,55 @@ class ApiService {
     }): Promise<{ message: string; success: boolean }> {
         const { data } = await this.client.post('/auth/change-password', passwordData);
         return data;
+    }
+
+    // ==================== Bookmark APIs ====================
+
+    async createBookmark(payload: any) {
+        const { data } = await this.client.post('/bookmarks', payload);
+        return data as any;
+    }
+
+    async generateBookmark(payload: any) {
+        const { data } = await this.client.post('/bookmarks/generate', payload);
+        return data as any;
+    }
+
+    async getBookmarks(params: { document_id?: string; page_number?: number; limit?: number } = {}) {
+        const { data } = await this.client.get('/bookmarks', { params });
+        return data as any;
+    }
+
+    async getBookmark(id: string) {
+        const { data } = await this.client.get(`/bookmarks/${id}`);
+        return data as any;
+    }
+
+    async updateBookmark(id: string, update: any) {
+        const { data } = await this.client.put(`/bookmarks/${id}`, update);
+        return data as any;
+    }
+
+    async deleteBookmark(id: string) {
+        const { data } = await this.client.delete(`/bookmarks/${id}`);
+        return data as any;
+    }
+
+    async searchBookmarks(payload: { query: string; document_id?: string }) {
+        const { data } = await this.client.post('/bookmarks/search', payload);
+        return data as any;
+    }
+
+    // ==================== Annotation APIs ====================
+
+    async createAnnotation(payload: any) {
+        const { data } = await this.client.post('/annotations', payload);
+        return data as any;
+    }
+
+    async getAnnotationsForDocument(documentId: string) {
+        const { data } = await this.client.get(`/annotations/documents/${documentId}`);
+        return data as any;
     }
 }
 

@@ -86,8 +86,12 @@ class RetrievalService:
 
             for i, chunk in enumerate(chunks):
                 # 生成唯一 ID
-                chunk_id = f"{document_id}_{chunk.get('chunk_index', i)}" if document_id else str(
-                    uuid.uuid4())
+                # Prefer explicit 'id' from chunk (e.g., database UUID) to ensure uniqueness
+                if 'id' in chunk and chunk['id']:
+                    chunk_id = chunk['id']
+                else:
+                    chunk_id = f"{document_id}_{chunk.get('chunk_index', i)}" if document_id else str(
+                        uuid.uuid4())
                 ids.append(chunk_id)
 
                 # 嵌入向量
@@ -174,11 +178,25 @@ class RetrievalService:
             formatted_results = []
             if results and results['ids']:
                 for i in range(len(results['ids'][0])):
+                    # Defensively read values (some clients use 'documents' or 'texts')
+                    doc_text = None
+                    try:
+                        doc_text = results['documents'][0][i]
+                    except Exception:
+                        # Fallback: try index into 'documents' differently or set empty
+                        doc_text = results.get('documents', [[]])[
+                            0][i] if results.get('documents') else ''
+
+                    metadata = results['metadatas'][0][i] if results.get(
+                        'metadatas') else {}
+                    distance = results['distances'][0][i] if results.get(
+                        'distances') and len(results['distances'][0]) > i else None
+
                     result = {
                         'id': results['ids'][0][i],
-                        'text': results['documents'][0][i],
-                        'metadata': results['metadatas'][0][i],
-                        'distance': results['distances'][0][i] if 'distances' in results else None,
+                        'text': doc_text or '',
+                        'metadata': metadata or {},
+                        'distance': distance,
                     }
                     formatted_results.append(result)
 

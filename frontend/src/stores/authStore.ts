@@ -24,7 +24,7 @@ export interface AuthState {
     token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    
+
     // Actions
     setUser: (user: User | null) => void;
     setToken: (token: string | null) => void;
@@ -41,39 +41,39 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             isLoading: false,
-            
+
             // Set user
-            setUser: (user) => set({ 
-                user, 
-                isAuthenticated: !!user 
+            setUser: (user) => set({
+                user,
+                isAuthenticated: !!user
             }),
-            
+
             // Set token
             setToken: (token) => set({ token }),
-            
+
             // Login action
-            login: (user, token) => set({ 
-                user, 
-                token, 
+            login: (user, token) => set({
+                user,
+                token,
                 isAuthenticated: true,
                 isLoading: false
             }),
-            
+
             // Logout action
-            logout: () => set({ 
-                user: null, 
-                token: null, 
+            logout: () => set({
+                user: null,
+                token: null,
                 isAuthenticated: false,
                 isLoading: false
             }),
-            
+
             // Set loading state
             setLoading: (loading) => set({ isLoading: loading }),
         }),
         {
             name: 'auth-storage', // Key in localStorage
-            partialize: (state) => ({ 
-                user: state.user, 
+            partialize: (state) => ({
+                user: state.user,
                 token: state.token,
                 isAuthenticated: state.isAuthenticated
             }),

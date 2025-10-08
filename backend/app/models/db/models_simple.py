@@ -293,5 +293,384 @@ class UserModel(Base, TimestampMixin):
         return f"<UserModel(id={self.id}, username={self.username}, email={self.email})>"
 
 
+class BookmarkModel(Base, TimestampMixin):
+    """Bookmark database model with AI-generated summaries."""
+
+    __tablename__ = "bookmarks"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Bookmark unique identifier"
+    )
+
+    # Foreign Keys
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Owner user ID"
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Associated document ID"
+    )
+    chunk_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("chunks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Associated chunk ID"
+    )
+
+    # Selected Text & Position
+    selected_text: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="User-selected text content"
+    )
+    page_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+        comment="Page number where bookmark is located"
+    )
+
+    # Position (Bounding Box)
+    position_x: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="X coordinate of selection"
+    )
+    position_y: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Y coordinate of selection"
+    )
+    position_width: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Width of selection"
+    )
+    position_height: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Height of selection"
+    )
+
+    # AI-Generated Content
+    ai_summary: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="AI-generated bookmark summary"
+    )
+
+    # User Content
+    title: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Bookmark title"
+    )
+    user_notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User's additional notes"
+    )
+
+    # Metadata
+    conversation_context: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Associated conversation history"
+    )
+    tags: Mapped[Optional[list]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=[],
+        comment="User-defined tags"
+    )
+    color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#FCD34D",
+        comment="Highlight color (hex)"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_bookmarks_user_document", "user_id", "document_id"),
+        Index("idx_bookmarks_page", "document_id", "page_number"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<BookmarkModel(id={self.id}, user_id={self.user_id}, document_id={self.document_id}, page={self.page_number})>"
+
+
+class AnnotationModel(Base, TimestampMixin):
+    """Text annotation model for PDF content (highlights, underlines, strikethrough, etc.)."""
+
+    __tablename__ = "annotations"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Annotation unique identifier"
+    )
+
+    # Foreign Keys
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Owner user ID"
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Associated document ID"
+    )
+    chunk_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("chunks.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Associated chunk ID"
+    )
+
+    # Annotation Type
+    annotation_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+        comment="Type: highlight, underline, strikethrough, tag"
+    )
+
+    # Selected Text & Position
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Annotated text content"
+    )
+    page_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+        comment="Page number of annotation"
+    )
+
+    # Position (Bounding Box)
+    position_x: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="X coordinate"
+    )
+    position_y: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Y coordinate"
+    )
+    position_width: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Width"
+    )
+    position_height: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Height"
+    )
+
+    # Style
+    color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#FFFF00",
+        comment="Color (hex)"
+    )
+
+    # Optional Tag Reference (for tag-type annotations)
+    tag_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("tags.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Associated tag ID if annotation_type is 'tag'"
+    )
+
+    # User Notes
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User notes for this annotation"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_annotations_user_document", "user_id", "document_id"),
+        Index("idx_annotations_page", "document_id", "page_number"),
+        Index("idx_annotations_type", "annotation_type"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnnotationModel(id={self.id}, type={self.annotation_type}, page={self.page_number})>"
+
+
+class TagModel(Base, TimestampMixin):
+    """Tag model for organizing annotations and bookmarks."""
+
+    __tablename__ = "tags"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Tag unique identifier"
+    )
+
+    # Foreign Key
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Owner user ID"
+    )
+
+    # Tag Properties
+    name: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        comment="Tag name"
+    )
+    color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#3B82F6",
+        comment="Tag color (hex)"
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Tag description"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_tags_user", "user_id"),
+        UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<TagModel(id={self.id}, name={self.name})>"
+
+
+class AIQuestionModel(Base, TimestampMixin):
+    """AI Question model for tracking context-based AI inquiries."""
+
+    __tablename__ = "ai_questions"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Question unique identifier"
+    )
+
+    # Foreign Keys
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="User ID"
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Associated document ID"
+    )
+    chunk_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("chunks.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Context chunk ID"
+    )
+
+    # Question & Context
+    selected_text: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Selected text being questioned"
+    )
+    context_text: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Surrounding context from chunk"
+    )
+    user_question: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="User's question about the selected text"
+    )
+    ai_answer: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="AI-generated answer"
+    )
+
+    # Position
+    page_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+        comment="Page number"
+    )
+    position_x: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="X coordinate"
+    )
+    position_y: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment="Y coordinate"
+    )
+
+    # Metadata
+    model_used: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="gemini-1.5-flash",
+        comment="AI model used"
+    )
+    response_metadata: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Additional response metadata"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_ai_questions_user_document", "user_id", "document_id"),
+        Index("idx_ai_questions_page", "document_id", "page_number"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AIQuestionModel(id={self.id}, page={self.page_number})>"
+
+
 # Simplified models - remove complex features not needed initially
-# We can add KnowledgeNode, KnowledgeEdge, Bookmark, ChatSession, ChatMessage later
+# We can add KnowledgeNode, KnowledgeEdge, ChatSession, ChatMessage later

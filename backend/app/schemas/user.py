@@ -13,17 +13,20 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 class UserBase(BaseModel):
     """Base user schema with common fields."""
-    
-    username: str = Field(..., min_length=3, max_length=50, description="Unique username")
+
+    username: str = Field(..., min_length=3, max_length=50,
+                          description="Unique username")
     email: EmailStr = Field(..., description="User email address")
-    full_name: Optional[str] = Field(None, max_length=100, description="User's full name")
+    full_name: Optional[str] = Field(
+        None, max_length=100, description="User's full name")
 
 
 class UserCreate(UserBase):
     """Schema for user registration."""
-    
-    password: str = Field(..., min_length=6, max_length=100, description="User password")
-    
+
+    password: str = Field(..., min_length=6, max_length=100,
+                          description="User password")
+
     @validator('password')
     def validate_password(cls, v):
         """Validate password strength."""
@@ -34,7 +37,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Schema for user profile update."""
-    
+
     full_name: Optional[str] = Field(None, max_length=100)
     email: Optional[EmailStr] = None
     gemini_api_key: Optional[str] = None
@@ -42,13 +45,14 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     """Schema for user response (excludes sensitive data)."""
-    
+
     id: str = Field(..., description="User ID")
     is_active: bool = Field(..., description="Whether user is active")
     is_superuser: bool = Field(..., description="Whether user is superuser")
     created_at: datetime = Field(..., description="Account creation time")
-    last_login_at: Optional[datetime] = Field(None, description="Last login time")
-    
+    last_login_at: Optional[datetime] = Field(
+        None, description="Last login time")
+
     class Config:
         from_attributes = True
 
@@ -57,14 +61,14 @@ class UserResponse(UserBase):
 
 class LoginRequest(BaseModel):
     """Schema for login request."""
-    
+
     username: str = Field(..., description="Username or email")
     password: str = Field(..., description="User password")
 
 
 class LoginResponse(BaseModel):
     """Schema for login response."""
-    
+
     access_token: str = Field(..., description="JWT access token")
     token_type: str = Field(default="bearer", description="Token type")
     user: UserResponse = Field(..., description="User information")
@@ -82,10 +86,10 @@ class RegisterResponse(LoginResponse):
 
 class PasswordChangeRequest(BaseModel):
     """Schema for password change request."""
-    
+
     old_password: str = Field(..., description="Current password")
     new_password: str = Field(..., min_length=6, description="New password")
-    
+
     @validator('new_password')
     def validate_new_password(cls, v):
         """Validate new password strength."""
@@ -96,7 +100,7 @@ class PasswordChangeRequest(BaseModel):
 
 class TokenPayload(BaseModel):
     """Schema for JWT token payload."""
-    
+
     sub: str = Field(..., description="User ID (subject)")
     username: str = Field(..., description="Username")
     exp: Optional[datetime] = Field(None, description="Expiration time")
@@ -107,6 +111,6 @@ class TokenPayload(BaseModel):
 
 class MessageResponse(BaseModel):
     """Generic message response."""
-    
+
     message: str = Field(..., description="Response message")
     success: bool = Field(default=True, description="Operation success status")

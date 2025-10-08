@@ -6,7 +6,8 @@ This module aggregates all v1 endpoint routers.
 
 from fastapi import APIRouter
 
-from .endpoints import documents, health, test, documents_enhanced, knowledge_graph, auth
+from .endpoints import documents, health, test, documents_enhanced, knowledge_graph, auth, bookmarks
+from .endpoints import annotations
 
 api_router = APIRouter()
 
@@ -37,6 +38,19 @@ api_router.include_router(
     tags=["knowledge-graph"]
 )
 
+# Bookmark endpoints
+api_router.include_router(
+    bookmarks.router,
+    prefix="/bookmarks",
+    tags=["bookmarks"]
+)
+
+# Annotation endpoints
+api_router.include_router(
+    annotations.router,
+    prefix="/annotations",
+    tags=["annotations"]
+)
+
 # Additional routers will be added as they're implemented
 # api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
-# api_router.include_router(bookmarks.router, prefix="/bookmarks", tags=["bookmarks"])
