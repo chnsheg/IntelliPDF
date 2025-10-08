@@ -378,6 +378,16 @@ class ApiService {
         const { data } = await this.client.get(`/annotations/documents/${documentId}`);
         return data as any;
     }
+
+    async updateAnnotation(annotationId: string, payload: any) {
+        const { data } = await this.client.patch(`/annotations/${annotationId}`, payload);
+        return data as any;
+    }
+
+    async deleteAnnotation(annotationId: string) {
+        const { data } = await this.client.delete(`/annotations/${annotationId}`);
+        return data as any;
+    }
 }
 
 export const apiService = new ApiService();

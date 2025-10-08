@@ -26,6 +26,7 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 // Import new annotation system
 import { AnnotationCanvas } from './annotation/AnnotationCanvas';
 import { ShapeTool } from './annotation/ShapeTool';
+import { SelectTool } from './annotation/SelectTool';
 import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
 import type { Annotation, ToolType } from '../types/annotation';
@@ -114,7 +115,11 @@ export default function PDFViewerEnhanced({
     // Shape tool state
     const [isDrawingShape, setIsDrawingShape] = useState(false);
     const [currentShapeTool, setCurrentShapeTool] = useState<'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null>(null);
-    const [annotationMode, setAnnotationMode] = useState<'text' | 'shape' | 'ink' | 'note' | null>(null);
+    const [annotationMode, setAnnotationMode] = useState<'text' | 'shape' | 'ink' | 'note' | 'select' | null>(null);
+    
+    // Selection state
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+    const annotationCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
     // Initialize annotation manager and load annotations
     useEffect(() => {
@@ -681,6 +686,116 @@ export default function PDFViewerEnhanced({
         }
     }, [documentId, currentShapeTool]);
 
+    // Handle annotation selection
+    const handleAnnotationSelect = useCallback((annotationId: string | null) => {
+        setSelectedAnnotationId(annotationId);
+        console.log('Annotation selected:', annotationId);
+    }, []);
+
+    // Handle annotation delete
+    const handleAnnotationDelete = useCallback(async (annotationId: string) => {
+        try {
+            // Find the annotation
+            const annotation = annotations.find(a => a.id === annotationId);
+            if (!annotation) {
+                console.error('Annotation not found:', annotationId);
+                return;
+            }
+
+            // Confirm deletion
+            const confirmed = window.confirm('确定要删除这个标注吗?');
+            if (!confirmed) return;
+
+            // Delete from backend
+            await apiService.deleteAnnotation(annotationId);
+
+            // Update local state
+            setAnnotations(prev => prev.filter(a => a.id !== annotationId));
+            setSelectedAnnotationId(null);
+
+            console.log('Annotation deleted:', annotationId);
+        } catch (err) {
+            console.error('Failed to delete annotation:', err);
+            alert('删除标注失败，请重试');
+        }
+    }, [annotations]);
+
+    // Handle annotation move
+    const handleAnnotationMove = useCallback(async (annotationId: string, newGeometry: any) => {
+        try {
+            // Find the annotation
+            const annotation = annotations.find(a => a.id === annotationId);
+            if (!annotation) {
+                console.error('Annotation not found:', annotationId);
+                return;
+            }
+
+            // Update geometry (只更新几何信息，不更新整个annotation)
+            const updatedAnnotation = {
+                ...annotation,
+                geometry: newGeometry,
+            };
+
+            // Update backend (只发送必要的更新字段)
+            await apiService.updateAnnotation(annotationId, {
+                data: {
+                    id: annotation.id,
+                    type: annotation.type,
+                    geometry: newGeometry,
+                    style: (annotation as any).style,
+                }
+            });
+
+            // Update local state
+            setAnnotations(prev =>
+                prev.map(a => (a.id === annotationId ? updatedAnnotation : a))
+            );
+
+            console.log('Annotation moved:', annotationId, newGeometry);
+        } catch (err) {
+            console.error('Failed to move annotation:', err);
+            alert('移动标注失败，请重试');
+        }
+    }, [annotations]);
+
+    // Handle annotation resize
+    const handleAnnotationResize = useCallback(async (annotationId: string, newGeometry: any) => {
+        try {
+            // Find the annotation
+            const annotation = annotations.find(a => a.id === annotationId);
+            if (!annotation) {
+                console.error('Annotation not found:', annotationId);
+                return;
+            }
+
+            // Update geometry
+            const updatedAnnotation = {
+                ...annotation,
+                geometry: newGeometry,
+            };
+
+            // Update backend
+            await apiService.updateAnnotation(annotationId, {
+                data: {
+                    id: annotation.id,
+                    type: annotation.type,
+                    geometry: newGeometry,
+                    style: (annotation as any).style,
+                }
+            });
+
+            // Update local state
+            setAnnotations(prev =>
+                prev.map(a => (a.id === annotationId ? updatedAnnotation : a))
+            );
+
+            console.log('Annotation resized:', annotationId, newGeometry);
+        } catch (err) {
+            console.error('Failed to resize annotation:', err);
+            alert('调整标注大小失败，请重试');
+        }
+    }, [annotations]);
+
     // Dispatch AI question event - 设置对话上下文
     const dispatchAIQuestion = useCallback(() => {
         if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
@@ -1000,6 +1115,18 @@ export default function PDFViewerEnhanced({
                                             pdfPage={pdfPagesCache.current.get(pageNumber)!}
                                             selectedAnnotationIds={selectedAnnotationIds}
                                             onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                        />
+                                    )}
+                                    {/* Selection tool - only active when not drawing */}
+                                    {!isDrawingShape && annotationMode === 'select' && (
+                                        <SelectTool
+                                            pageNumber={pageNumber}
+                                            annotations={annotations.filter(a => a.pageNumber === pageNumber)}
+                                            canvasRef={pageRefs}
+                                            onSelectionChange={handleAnnotationSelect}
+                                            onDelete={handleAnnotationDelete}
+                                            onMove={handleAnnotationMove}
+                                            onResize={handleAnnotationResize}
                                         />
                                     )}
                                     {/* Shape drawing tool */}
