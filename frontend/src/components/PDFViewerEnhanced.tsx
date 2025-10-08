@@ -25,6 +25,8 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 // Import new annotation system
 import { AnnotationCanvas } from './annotation/AnnotationCanvas';
+import { ShapeTool } from './annotation/ShapeTool';
+import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
 import type { Annotation, ToolType } from '../types/annotation';
 
@@ -107,6 +109,11 @@ export default function PDFViewerEnhanced({
     const [annotations, setAnnotations] = useState<Annotation[]>([]);
     const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
     const [currentTool, setCurrentTool] = useState<ToolType>('select');
+    
+    // Shape tool state
+    const [isDrawingShape, setIsDrawingShape] = useState(false);
+    const [currentShapeTool, setCurrentShapeTool] = useState<'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null>(null);
+    const [annotationMode, setAnnotationMode] = useState<'text' | 'shape' | 'ink' | 'note' | null>(null);
 
     // Initialize annotation manager and load annotations
     useEffect(() => {
@@ -622,6 +629,52 @@ export default function PDFViewerEnhanced({
         setSelectionInfo(prev => ({ ...prev, visible: false }));
     }, [selectionInfo, documentId, getPDFPage]);
 
+    // Handle shape annotation complete
+    const handleShapeComplete = useCallback(async (shapeData: {
+        type: 'shape';
+        pageNumber: number;
+        geometry: { rect?: { x: number; y: number; width: number; height: number }; points?: Array<{ x: number; y: number }> };
+    }) => {
+        try {
+            // Create annotation ID
+            const annotationId = `shape-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            // Prepare annotation data for backend
+            const annotationPayload = {
+                document_id: documentId,
+                user_id: localStorage.getItem('user_id') || 'anonymous',
+                annotation_type: 'shape',
+                page_number: shapeData.pageNumber,
+                data: JSON.stringify({
+                    id: annotationId,
+                    type: 'shape',
+                    shapeType: currentShapeTool,
+                    geometry: shapeData.geometry,
+                    style: {
+                        color: '#2196F3',
+                        opacity: 0.8,
+                        strokeWidth: 2,
+                        fillColor: '#2196F3',
+                        fillOpacity: 0.2,
+                    }
+                }),
+                tags: []
+            };
+
+            // Save to backend
+            await apiService.createAnnotation(annotationPayload);
+
+            // Reset drawing mode
+            setIsDrawingShape(false);
+            setCurrentShapeTool(null);
+            setAnnotationMode(null);
+
+            console.log('Shape annotation created successfully', annotationId);
+        } catch (err) {
+            console.error('Failed to create shape annotation:', err);
+        }
+    }, [documentId, currentShapeTool]);
+
     // Dispatch AI question event - 设置对话上下文
     const dispatchAIQuestion = useCallback(() => {
         if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
@@ -877,6 +930,33 @@ export default function PDFViewerEnhanced({
             )}
         >
             {renderToolbar()}
+            
+            {/* Annotation Toolbar */}
+            <AnnotationToolbar
+                mode={annotationMode}
+                shapeTool={currentShapeTool}
+                onModeChange={(mode) => {
+                    setAnnotationMode(mode);
+                    if (mode === 'shape') {
+                        setIsDrawingShape(true);
+                    } else {
+                        setIsDrawingShape(false);
+                        setCurrentShapeTool(null);
+                    }
+                }}
+                onShapeToolChange={(tool) => {
+                    setCurrentShapeTool(tool);
+                    if (tool) {
+                        setIsDrawingShape(true);
+                        setAnnotationMode('shape');
+                    }
+                }}
+                onCancel={() => {
+                    setIsDrawingShape(false);
+                    setCurrentShapeTool(null);
+                    setAnnotationMode(null);
+                }}
+            />
 
             <div
                 className={clsx(
@@ -914,6 +994,21 @@ export default function PDFViewerEnhanced({
                                             pdfPage={pdfPagesCache.current.get(pageNumber)!}
                                             selectedAnnotationIds={selectedAnnotationIds}
                                             onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                        />
+                                    )}
+                                    {/* Shape drawing tool */}
+                                    {isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNumber) && (
+                                        <ShapeTool
+                                            pageNumber={pageNumber}
+                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                            scale={scale}
+                                            currentTool={currentShapeTool}
+                                            onShapeComplete={handleShapeComplete}
+                                            onCancel={() => {
+                                                setIsDrawingShape(false);
+                                                setCurrentShapeTool(null);
+                                                setAnnotationMode(null);
+                                            }}
                                         />
                                     )}
                                 </div>
@@ -1036,6 +1131,21 @@ export default function PDFViewerEnhanced({
                                                     pdfPage={pdfPagesCache.current.get(pageNum)!}
                                                     selectedAnnotationIds={selectedAnnotationIds}
                                                     onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                                />
+                                            )}
+                                            {/* Shape drawing tool */}
+                                            {isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNum) && (
+                                                <ShapeTool
+                                                    pageNumber={pageNum}
+                                                    pdfPage={pdfPagesCache.current.get(pageNum)!}
+                                                    scale={scale}
+                                                    currentTool={currentShapeTool}
+                                                    onShapeComplete={handleShapeComplete}
+                                                    onCancel={() => {
+                                                        setIsDrawingShape(false);
+                                                        setCurrentShapeTool(null);
+                                                        setAnnotationMode(null);
+                                                    }}
                                                 />
                                             )}
                                             {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (() => {
