@@ -100,7 +100,8 @@ export const AnnotationType = {
     TEXT: 'text',                     // 文本框
 
     // 图形标注
-    SQUARE: 'square',                 // 矩形
+    SQUARE: 'square',                 // 矩形（旧）
+    RECTANGLE: 'rectangle',           // 矩形（新）
     CIRCLE: 'circle',                 // 圆形
     POLYGON: 'polygon',               // 多边形
     LINE: 'line',                     // 直线
@@ -143,7 +144,7 @@ export interface TextMarkupStyle extends BaseAnnotationStyle {
  * 图形标注样式
  */
 export interface ShapeStyle extends BaseAnnotationStyle {
-    type: 'square' | 'circle' | 'polygon' | 'line' | 'arrow';
+    type: 'square' | 'rectangle' | 'circle' | 'polygon' | 'line' | 'arrow';
     /** 边框宽度 */
     strokeWidth: number;
     /** 填充颜色（可选） */

@@ -196,10 +196,19 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             id: annotation.id,
             type: annotation.type,
             geometry: annotation.geometry,
-            style: annotation.style
+            style: annotation.style,
+            'style.type': annotation.style.type,
+            'style.color': annotation.style.color
         });
 
         const { style } = annotation;
+        
+        // 🔥 关键检查：如果 style.type 不存在，无法渲染
+        if (!style.type) {
+            console.error('[renderShape] ❌ style.type is undefined! Cannot render shape. Style:', style);
+            return;
+        }
+        
         const color = hexToRgba(style.color, style.opacity);
 
         ctx.strokeStyle = color;
@@ -229,7 +238,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             
             console.log('[renderShape] Drawing rect:', rect);
 
-            if (style.type === 'square') {
+            // 支持 'square' 和 'rectangle' (前端发送的是 'rectangle')
+            if (style.type === 'square' || style.type === 'rectangle') {
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
                 if (style.fillColor) {
                     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
