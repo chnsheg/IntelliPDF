@@ -1306,7 +1306,8 @@ export default function PDFViewerEnhanced({
                                     className="shadow-2xl"
                                     onLoadSuccess={onPageLoadSuccess}
                                 />
-                                <div className="absolute inset-0 pointer-events-auto">
+                                {/* ⚠️ 修复：使用 pointer-events-none 让事件穿透到子元素 */}
+                                <div className="absolute inset-0 pointer-events-none">
                                     {renderChunkOverlays(pageNumber)}
                                     {renderBookmarkOverlays(pageNumber)}
                                     {/* New annotation system */}
