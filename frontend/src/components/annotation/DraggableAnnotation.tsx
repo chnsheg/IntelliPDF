@@ -20,7 +20,7 @@ interface Geometry {
 interface Annotation {
     id: string;
     pageNumber: number;
-    geometry: Geometry;
+    geometry?: Geometry;  // 可选，便笺等标注类型没有 geometry
     type: string;
     style?: any;
 }
@@ -70,6 +70,11 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
      */
     const hitTest = useCallback((x: number, y: number, annotation: Annotation): boolean => {
         const { geometry } = annotation;
+        
+        // 跳过没有 geometry 的标注（例如便笺）
+        if (!geometry) {
+            return false;
+        }
         
         // 转换为屏幕坐标
         const viewport = pdfPage.getViewport({ scale });
@@ -126,7 +131,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         // 检查是否点击了选中的标注
         if (selectedAnnotationId) {
             const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId);
-            if (selectedAnnotation) {
+            if (selectedAnnotation && selectedAnnotation.geometry) {
                 // 检查是否点击了调整句柄
                 const handle = getResizeHandle(x, y, selectedAnnotation.geometry);
                 if (handle) {
@@ -236,7 +241,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         if (!isDragging && !isResizing) return;
 
         const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId);
-        if (!selectedAnnotation) return;
+        if (!selectedAnnotation || !selectedAnnotation.geometry) return;
 
         const viewport = pdfPage.getViewport({ scale });
 
@@ -335,7 +340,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         if (!selectedAnnotationId) return null;
 
         const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId);
-        if (!selectedAnnotation) return null;
+        if (!selectedAnnotation || !selectedAnnotation.geometry) return null;
 
         const { geometry } = selectedAnnotation;
         const viewport = pdfPage.getViewport({ scale });
