@@ -316,14 +316,26 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         viewport: any,
         isSelected: boolean
     ) => {
+        // 兼容 position 和 point 两种字段名
+        const notePoint = (annotation as any).position || annotation.point;
+        if (!notePoint) {
+            console.warn('Note annotation missing position/point:', annotation);
+            return;
+        }
+
         const point = pdfCoordinateService.pointToScreen(
-            annotation.point,
+            notePoint,
             viewport
         );
 
+        // 兼容不同的颜色字段结构
+        const noteColor = (annotation as any).color || annotation.style?.color || '#FFD54F';
+        const noteOpacity = annotation.style?.opacity || 1.0;
+        const iconType = annotation.style?.iconType || 'comment';
+
         // 绘制便签图标
         const iconSize = 24;
-        ctx.fillStyle = hexToRgba(annotation.style.color, annotation.style.opacity);
+        ctx.fillStyle = hexToRgba(noteColor, noteOpacity);
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, iconSize / 2, 0, 2 * Math.PI);
@@ -335,7 +347,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const icon = getIconChar(annotation.style.iconType);
+        const icon = getIconChar(iconType);
         ctx.fillText(icon, point.x, point.y);
 
         if (isSelected) {

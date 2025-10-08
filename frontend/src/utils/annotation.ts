@@ -438,6 +438,30 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
                 userName: user_name || 'Anonymous',
             },
         };
+    } else if (annotation_type === 'note') {
+        // 便笺标注
+        return {
+            id: parsedData.id || id,
+            type: 'note',
+            pageNumber: page_number,
+            // 兼容 position 和 point 字段
+            position: parsedData.position,
+            point: parsedData.position || parsedData.point,
+            content: parsedData.content || backendAnnotation.content,
+            color: parsedData.color || '#FFD54F',
+            author: parsedData.author || user_name || 'Anonymous',
+            style: {
+                color: parsedData.color || '#FFD54F',
+                opacity: 1.0,
+                iconType: 'comment',
+            },
+            metadata: {
+                createdAt: created_at,
+                updatedAt: backendAnnotation.updated_at,
+                userId: user_id,
+                userName: user_name || 'Anonymous',
+            },
+        };
     }
 
     // 其他类型标注
