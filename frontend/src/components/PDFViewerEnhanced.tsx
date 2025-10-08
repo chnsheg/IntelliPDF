@@ -248,9 +248,9 @@ export default function PDFViewerEnhanced({
     }, [scale, getPDFPage]);
 
     // Annotation Overlay Component with coordinate conversion
-    const AnnotationOverlay = ({ annotation, pageNum }: { 
-        annotation: { id: string; page: number; x: number; y: number; width: number; height: number; style: string; text: string }; 
-        pageNum: number 
+    const AnnotationOverlay = ({ annotation, pageNum }: {
+        annotation: { id: string; page: number; x: number; y: number; width: number; height: number; style: string; text: string };
+        pageNum: number
     }) => {
         const [position, setPosition] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
@@ -906,10 +906,10 @@ export default function PDFViewerEnhanced({
                                     ))}
                                 </div>
                                 {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (
-                                    <div className="selection-toolbar absolute" style={{ 
-                                        left: selectionInfo.toolbarX ?? selectionInfo.x, 
-                                        top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4), 
-                                        zIndex: 60 
+                                    <div className="selection-toolbar absolute" style={{
+                                        left: selectionInfo.toolbarX ?? selectionInfo.x,
+                                        top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4),
+                                        zIndex: 60
                                     }}>
                                         <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                             <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
@@ -946,10 +946,10 @@ export default function PDFViewerEnhanced({
                                                 <AnnotationOverlay key={a.id} annotation={a} pageNum={pageNum} />
                                             ))}
                                             {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (
-                                                <div className="selection-toolbar absolute" style={{ 
-                                                    left: selectionInfo.toolbarX ?? selectionInfo.x, 
-                                                    top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4), 
-                                                    zIndex: 60 
+                                                <div className="selection-toolbar absolute" style={{
+                                                    left: selectionInfo.toolbarX ?? selectionInfo.x,
+                                                    top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4),
+                                                    zIndex: 60
                                                 }}>
                                                     <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                                         <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
