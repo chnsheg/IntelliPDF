@@ -1041,7 +1041,7 @@ export default function PDFViewerEnhanced({
                     <div
                         key={`${chunk.id}-${idx}`}
                         className={clsx(
-                            'absolute border-2 cursor-pointer transition-all',
+                            'absolute border-2 cursor-pointer transition-all pointer-events-auto',
                             activeChunkId === chunk.id
                                 ? 'border-blue-500 bg-blue-500/20'
                                 : 'border-yellow-400/50 bg-yellow-400/10 hover:bg-yellow-400/20'
@@ -1086,7 +1086,7 @@ export default function PDFViewerEnhanced({
                         {/* Bookmark highlight */}
                         <div
                             className={clsx(
-                                'absolute cursor-pointer transition-all duration-300',
+                                'absolute cursor-pointer transition-all duration-300 pointer-events-auto',
                                 'border-2 rounded',
                                 isHovered ? 'shadow-lg z-20' : 'z-10'
                             )}
