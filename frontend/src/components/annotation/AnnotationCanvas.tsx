@@ -57,17 +57,28 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         // 清空画布
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        console.log(`[AnnotationCanvas] Page ${pageNumber}:`, {
+            totalAnnotations: annotations.length,
+            annotationTypes: annotations.map(a => ({ id: a.id, type: a.type, pageNumber: (a as any).pageNumber }))
+        });
+
         // 筛选当前页面的标注
         const pageAnnotations = annotations.filter(a => {
             if (a.type === 'text-markup') {
                 return a.pdfCoordinates.pageNumber === pageNumber;
             }
-            return a.pageNumber === pageNumber;
+            return (a as any).pageNumber === pageNumber;
+        });
+
+        console.log(`[AnnotationCanvas] Page ${pageNumber} filtered:`, {
+            count: pageAnnotations.length,
+            annotations: pageAnnotations.map(a => ({ id: a.id, type: a.type }))
         });
 
         // 渲染每个标注
         pageAnnotations.forEach(annotation => {
             const isSelected = selectedAnnotationIds.includes(annotation.id);
+            console.log(`[AnnotationCanvas] Rendering annotation:`, { id: annotation.id, type: annotation.type });
             renderAnnotation(ctx, annotation, viewport, isSelected);
         });
     }, [pageNumber, annotations, scale, pdfPage, selectedAnnotationIds]);

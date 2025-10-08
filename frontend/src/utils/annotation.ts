@@ -401,11 +401,40 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
 
     if (annotation_type === 'shape') {
         // 图形标注
+        const geometry = parsedData.geometry;
+        
+        // 转换 geometry 格式：确保符合 ShapeAnnotation 接口
+        // 如果 geometry 直接有 x, y, width, height，需要包装成 rect
+        let transformedGeometry;
+        if (geometry.x !== undefined && geometry.y !== undefined) {
+            // 矩形/圆形：{ x, y, width, height } → { rect: { x, y, width, height } }
+            transformedGeometry = {
+                rect: {
+                    x: geometry.x,
+                    y: geometry.y,
+                    width: geometry.width,
+                    height: geometry.height
+                }
+            };
+        } else if (geometry.points) {
+            // 箭头/多边形：保持 points 格式
+            transformedGeometry = {
+                points: geometry.points
+            };
+        } else if (geometry.rect) {
+            // 已经是正确格式
+            transformedGeometry = geometry;
+        } else {
+            // 兜底：假设是矩形
+            console.warn('Unknown geometry format:', geometry);
+            transformedGeometry = { rect: geometry };
+        }
+        
         return {
             id: parsedData.id || id,
             type: 'shape',
             pageNumber: page_number,
-            geometry: parsedData.geometry,
+            geometry: transformedGeometry,
             style: {
                 type: parsedData.shapeType,
                 color: parsedData.style?.color || '#2196F3',
