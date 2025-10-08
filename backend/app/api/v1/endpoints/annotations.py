@@ -49,7 +49,8 @@ async def create_annotation(
             user_name=data.user_name,
         )
 
-        logger.info(f"Created annotation {model.id} for document {data.document_id}")
+        logger.info(
+            f"Created annotation {model.id} for document {data.document_id}")
         return model
     except Exception as e:
         logger.error(f"Failed to create annotation: {e}")
@@ -80,10 +81,10 @@ async def get_annotations_for_document(
             limit=limit,
             offset=offset
         )
-        
+
         has_more = (offset + len(annotations)) < total
         page = offset // limit + 1 if limit > 0 else 1
-        
+
         return AnnotationListResponse(
             annotations=annotations,
             total=total,

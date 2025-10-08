@@ -569,20 +569,24 @@ export default function PDFViewerEnhanced({
                 localStorage.getItem('user_name') || 'Anonymous User'
             );
 
-            // Set the annotation type and style
+            // Set the annotation type and style with industry-standard colors
             annotation.style.type = annotationType;
             if (annotationType === 'highlight') {
-                annotation.style.color = '#FAEB96';
-                annotation.style.opacity = 0.45;
+                // Yellow highlight (like Adobe, Apple Preview)
+                annotation.style.color = '#FFEB3B';
+                annotation.style.opacity = 0.4;
             } else if (annotationType === 'underline') {
-                annotation.style.color = '#3B82F6';
-                annotation.style.opacity = 1.0;
+                // Blue underline
+                annotation.style.color = '#2196F3';
+                annotation.style.opacity = 0.8;
             } else if (annotationType === 'strikethrough') {
-                annotation.style.color = '#EF4444';
-                annotation.style.opacity = 1.0;
+                // Red strikethrough
+                annotation.style.color = '#F44336';
+                annotation.style.opacity = 0.8;
             } else if (annotationType === 'squiggly') {
-                annotation.style.color = '#10B981';
-                annotation.style.opacity = 1.0;
+                // Green squiggly
+                annotation.style.color = '#4CAF50';
+                annotation.style.opacity = 0.8;
             }
 
             // Persist to backend
@@ -602,7 +606,7 @@ export default function PDFViewerEnhanced({
             };
 
             const saved = await apiService.createAnnotation(payload);
-            
+
             // Update annotation ID with backend ID
             annotation.id = saved.id;
             annotationManager.updateAnnotation(annotation.id, { id: saved.id });
@@ -913,21 +917,93 @@ export default function PDFViewerEnhanced({
                                         />
                                     )}
                                 </div>
-                                {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (
-                                    <div className="selection-toolbar absolute" style={{
-                                        left: selectionInfo.toolbarX ?? selectionInfo.x,
-                                        top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4),
-                                        zIndex: 60
-                                    }}>
-                                        <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
-                                            <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
-                                            <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
-                                            <button onClick={() => createAnnotation('strikethrough')} className="text-xs px-2 py-0.5">删除线</button>
-                                            <button onClick={() => createAnnotation('squiggly')} className="text-xs px-2 py-0.5">波浪线</button>
-                                            <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
+                                {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (() => {
+                                    const containerRect = containerRef.current?.getBoundingClientRect();
+                                    const toolbarWidth = 280; // Estimated toolbar width
+                                    const toolbarHeight = 40;
+                                    
+                                    // Calculate position with boundary checks
+                                    let left = selectionInfo.toolbarX ?? selectionInfo.x;
+                                    let top = (selectionInfo.toolbarY ?? selectionInfo.y) - toolbarHeight - 4;
+                                    
+                                    // Keep within horizontal bounds
+                                    if (containerRect) {
+                                        const maxLeft = containerRect.width - toolbarWidth - 20;
+                                        left = Math.max(10, Math.min(left, maxLeft));
+                                        
+                                        // If too close to top, show below selection instead
+                                        if (top < 10) {
+                                            top = (selectionInfo.toolbarY ?? selectionInfo.y) + (selectionInfo.height || 20) + 4;
+                                        }
+                                    }
+                                    
+                                    return (
+                                        <div className="selection-toolbar absolute" style={{
+                                            left,
+                                            top,
+                                            zIndex: 60
+                                        }}>
+                                            <div className="flex gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
+                                                {/* Highlight button with color indicator */}
+                                                <button 
+                                                    onClick={() => createAnnotation('highlight')} 
+                                                    className="flex items-center gap-1 text-xs px-3 py-1.5 hover:bg-yellow-50 rounded transition-colors"
+                                                    title="高亮 (黄色)"
+                                                >
+                                                    <span className="w-3 h-3 rounded-sm bg-yellow-400 opacity-60"></span>
+                                                    <span>高亮</span>
+                                                </button>
+                                                
+                                                {/* Text markup dropdown */}
+                                                <div className="relative group">
+                                                    <button 
+                                                        className="text-xs px-3 py-1.5 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                                                        title="文本标记"
+                                                    >
+                                                        <span>标记</span>
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+                                                    <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px] z-70">
+                                                        <button 
+                                                            onClick={() => createAnnotation('underline')} 
+                                                            className="w-full text-left text-xs px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2"
+                                                        >
+                                                            <span className="w-4 h-0.5 bg-blue-500"></span>
+                                                            <span>下划线</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => createAnnotation('strikethrough')} 
+                                                            className="w-full text-left text-xs px-3 py-1.5 hover:bg-red-50 flex items-center gap-2"
+                                                        >
+                                                            <span className="w-4 h-0.5 bg-red-500 line-through"></span>
+                                                            <span>删除线</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => createAnnotation('squiggly')} 
+                                                            className="w-full text-left text-xs px-3 py-1.5 hover:bg-green-50 flex items-center gap-2"
+                                                        >
+                                                            <span className="w-4 h-0.5 bg-green-500" style={{textDecoration: 'wavy underline'}}></span>
+                                                            <span>波浪线</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Divider */}
+                                                <div className="w-px bg-gray-300 mx-1"></div>
+                                                
+                                                {/* AI button */}
+                                                <button 
+                                                    onClick={dispatchAIQuestion} 
+                                                    className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium"
+                                                >
+                                                    AI 提问
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </div>
                         ) : (
                             // Scroll mode: all pages
@@ -962,21 +1038,86 @@ export default function PDFViewerEnhanced({
                                                     onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
                                                 />
                                             )}
-                                            {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (
-                                                <div className="selection-toolbar absolute" style={{
-                                                    left: selectionInfo.toolbarX ?? selectionInfo.x,
-                                                    top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4),
-                                                    zIndex: 60
-                                                }}>
-                                                    <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
-                                                        <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
-                                                        <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
-                                                        <button onClick={() => createAnnotation('strikethrough')} className="text-xs px-2 py-0.5">删除线</button>
-                                                        <button onClick={() => createAnnotation('squiggly')} className="text-xs px-2 py-0.5">波浪线</button>
-                                                        <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
+                                            {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (() => {
+                                                const containerRect = containerRef.current?.getBoundingClientRect();
+                                                const toolbarWidth = 280;
+                                                const toolbarHeight = 40;
+                                                
+                                                let left = selectionInfo.toolbarX ?? selectionInfo.x;
+                                                let top = (selectionInfo.toolbarY ?? selectionInfo.y) - toolbarHeight - 4;
+                                                
+                                                if (containerRect) {
+                                                    const maxLeft = containerRect.width - toolbarWidth - 20;
+                                                    left = Math.max(10, Math.min(left, maxLeft));
+                                                    
+                                                    if (top < 10) {
+                                                        top = (selectionInfo.toolbarY ?? selectionInfo.y) + (selectionInfo.height || 20) + 4;
+                                                    }
+                                                }
+                                                
+                                                return (
+                                                    <div className="selection-toolbar absolute" style={{
+                                                        left,
+                                                        top,
+                                                        zIndex: 60
+                                                    }}>
+                                                        <div className="flex gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
+                                                            <button 
+                                                                onClick={() => createAnnotation('highlight')} 
+                                                                className="flex items-center gap-1 text-xs px-3 py-1.5 hover:bg-yellow-50 rounded transition-colors"
+                                                                title="高亮 (黄色)"
+                                                            >
+                                                                <span className="w-3 h-3 rounded-sm bg-yellow-400 opacity-60"></span>
+                                                                <span>高亮</span>
+                                                            </button>
+                                                            
+                                                            <div className="relative group">
+                                                                <button 
+                                                                    className="text-xs px-3 py-1.5 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                                                                    title="文本标记"
+                                                                >
+                                                                    <span>标记</span>
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                    </svg>
+                                                                </button>
+                                                                <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px] z-70">
+                                                                    <button 
+                                                                        onClick={() => createAnnotation('underline')} 
+                                                                        className="w-full text-left text-xs px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2"
+                                                                    >
+                                                                        <span className="w-4 h-0.5 bg-blue-500"></span>
+                                                                        <span>下划线</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => createAnnotation('strikethrough')} 
+                                                                        className="w-full text-left text-xs px-3 py-1.5 hover:bg-red-50 flex items-center gap-2"
+                                                                    >
+                                                                        <span className="w-4 h-0.5 bg-red-500 line-through"></span>
+                                                                        <span>删除线</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => createAnnotation('squiggly')} 
+                                                                        className="w-full text-left text-xs px-3 py-1.5 hover:bg-green-50 flex items-center gap-2"
+                                                                    >
+                                                                        <span className="w-4 h-0.5 bg-green-500" style={{textDecoration: 'wavy underline'}}></span>
+                                                                        <span>波浪线</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="w-px bg-gray-300 mx-1"></div>
+                                                            
+                                                            <button 
+                                                                onClick={dispatchAIQuestion} 
+                                                                className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium"
+                                                            >
+                                                                AI 提问
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                         <div className="text-center text-sm text-gray-500 mt-2">
                                             第 {pageNum} 页

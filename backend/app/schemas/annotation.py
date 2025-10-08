@@ -59,7 +59,8 @@ class AnnotationCreateBase(BaseModel):
     user_id: str
     annotation_type: str  # text-markup, shape, ink, textbox, note, stamp, signature
     page_number: int = Field(ge=1)
-    data: Dict[str, Any]  # Complete annotation data (textAnchor, pdfCoordinates, style)
+    # Complete annotation data (textAnchor, pdfCoordinates, style)
+    data: Dict[str, Any]
     content: Optional[str] = None
     color: Optional[str] = None
     tags: List[str] = Field(default_factory=list)

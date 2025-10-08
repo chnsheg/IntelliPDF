@@ -39,11 +39,12 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
         try:
             # Build WHERE clause
             conditions = [AnnotationModel.document_id == document_id]
-            
+
             if page_number is not None:
                 conditions.append(AnnotationModel.page_number == page_number)
             if annotation_type:
-                conditions.append(AnnotationModel.annotation_type == annotation_type)
+                conditions.append(
+                    AnnotationModel.annotation_type == annotation_type)
             if user_id:
                 conditions.append(AnnotationModel.user_id == user_id)
             if tags:
@@ -52,7 +53,8 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
                     conditions.append(AnnotationModel.tags.contains([tag]))
 
             # Count query
-            count_stmt = select(func.count()).select_from(AnnotationModel).where(and_(*conditions))
+            count_stmt = select(func.count()).select_from(
+                AnnotationModel).where(and_(*conditions))
             count_result = await self.session.execute(count_stmt)
             total = count_result.scalar() or 0
 
@@ -67,7 +69,8 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
             result = await self.session.execute(stmt)
             annotations = list(result.scalars().all())
 
-            logger.info(f"Found {len(annotations)}/{total} annotations for document: {document_id}")
+            logger.info(
+                f"Found {len(annotations)}/{total} annotations for document: {document_id}")
             return annotations, total
 
         except Exception as e:
@@ -93,7 +96,8 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
             )
             result = await self.session.execute(stmt)
             annotations = list(result.scalars().all())
-            logger.info(f"Found {len(annotations)} annotations on page {page_number}")
+            logger.info(
+                f"Found {len(annotations)} annotations on page {page_number}")
             return annotations
         except Exception as e:
             logger.error(f"Error getting annotations by page: {e}")
@@ -125,7 +129,8 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
             result = await self.session.execute(stmt)
             annotations = list(result.scalars().all())
 
-            logger.info(f"Found {len(annotations)}/{total} annotations for user: {user_id}")
+            logger.info(
+                f"Found {len(annotations)}/{total} annotations for user: {user_id}")
             return annotations, total
         except Exception as e:
             logger.error(f"Error getting annotations by user: {e}")
@@ -139,12 +144,12 @@ class AnnotationRepository(BaseRepository[AnnotationModel]):
             )
             result = await self.session.execute(stmt)
             annotations = list(result.scalars().all())
-            
+
             count = 0
             for annotation in annotations:
                 await self.session.delete(annotation)
                 count += 1
-            
+
             await self.session.commit()
             logger.info(f"Batch deleted {count} annotations")
             return count
@@ -216,7 +221,8 @@ class AnnotationReplyRepository(BaseRepository[AnnotationReplyModel]):
             )
             result = await self.session.execute(stmt)
             replies = list(result.scalars().all())
-            logger.info(f"Found {len(replies)} replies for annotation: {annotation_id}")
+            logger.info(
+                f"Found {len(replies)} replies for annotation: {annotation_id}")
             return replies
         except Exception as e:
             logger.error(f"Error getting replies: {e}")
