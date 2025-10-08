@@ -28,9 +28,10 @@ import { AnnotationCanvas } from './annotation/AnnotationCanvas';
 import { ShapeTool } from './annotation/ShapeTool';
 import { SelectTool } from './annotation/SelectTool';
 import { NoteTool } from './annotation/NoteTool';
+import { DraggableAnnotation } from './annotation/DraggableAnnotation';
 import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
-import { historyManager, CreateAnnotationCommand, DeleteAnnotationCommand } from '../services/annotation/HistoryManager';
+import { historyManager, CreateAnnotationCommand, DeleteAnnotationCommand, MoveAnnotationCommand } from '../services/annotation/HistoryManager';
 import type { Annotation, ToolType } from '../types/annotation';
 import { transformBackendAnnotation } from '../utils/annotation';
 
@@ -893,26 +894,33 @@ export default function PDFViewerEnhanced({
                 return;
             }
 
-            // Update geometry (只更新几何信息，不更新整个annotation)
-            const updatedAnnotation = {
-                ...annotation,
-                geometry: newGeometry,
-            };
+            const oldGeometry = (annotation as any).geometry;
 
-            // Update backend (只发送必要的更新字段)
-            await apiService.updateAnnotation(annotationId, {
-                data: {
-                    id: annotation.id,
-                    type: annotation.type,
-                    geometry: newGeometry,
-                    style: (annotation as any).style,
+            // Create move command for undo/redo
+            const moveCommand = new MoveAnnotationCommand(
+                annotationId,
+                oldGeometry,
+                newGeometry,
+                async (id: string, geometry: any) => {
+                    // Update backend
+                    await apiService.updateAnnotation(id, {
+                        data: {
+                            id,
+                            type: annotation.type,
+                            geometry,
+                            style: (annotation as any).style,
+                        }
+                    });
+
+                    // Update local state
+                    setAnnotations(prev =>
+                        prev.map(a => (a.id === id ? { ...a, geometry } as any : a))
+                    );
                 }
-            });
-
-            // Update local state
-            setAnnotations(prev =>
-                prev.map(a => (a.id === annotationId ? updatedAnnotation : a))
             );
+
+            // Execute command through history manager
+            await historyManager.execute(moveCommand);
 
             console.log('Annotation moved:', annotationId, newGeometry);
         } catch (err) {
@@ -1291,7 +1299,18 @@ export default function PDFViewerEnhanced({
                                             }}
                                         />
                                     )}
-                                    {/* Selection tool - TODO: integrate properly */}
+                                    {/* Draggable annotation layer */}
+                                    {!isDrawingShape && !isPlacingNote && pdfPagesCache.current.has(pageNumber) && (
+                                        <DraggableAnnotation
+                                            pageNumber={pageNumber}
+                                            annotations={annotations.filter(a => (a as any).pageNumber === pageNumber) as any[]}
+                                            scale={scale}
+                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                            selectedAnnotationId={selectedAnnotationId}
+                                            onSelect={handleAnnotationSelect}
+                                            onMoveComplete={handleAnnotationMove}
+                                        />
+                                    )}
                                     {/* Shape drawing tool */}
                                     {isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNumber) && (
                                         <ShapeTool
