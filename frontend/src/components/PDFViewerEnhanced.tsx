@@ -645,7 +645,7 @@ export default function PDFViewerEnhanced({
                 user_id: localStorage.getItem('user_id') || 'anonymous',
                 annotation_type: 'shape',
                 page_number: shapeData.pageNumber,
-                data: JSON.stringify({
+                data: {
                     id: annotationId,
                     type: 'shape',
                     shapeType: currentShapeTool,
@@ -657,7 +657,7 @@ export default function PDFViewerEnhanced({
                         fillColor: '#2196F3',
                         fillOpacity: 0.2,
                     }
-                }),
+                },
                 tags: []
             };
 

@@ -37,7 +37,9 @@ async def create_annotation(
 ):
     """Create a new PDF annotation"""
     try:
-        model = await repo.create(
+        # Create model instance from schema
+        from ....models.db import AnnotationModel
+        model = AnnotationModel(
             document_id=data.document_id,
             user_id=data.user_id,
             annotation_type=data.annotation_type,
@@ -48,10 +50,13 @@ async def create_annotation(
             tags=data.tags,
             user_name=data.user_name,
         )
+        
+        # Save to database
+        created_model = await repo.create(model)
 
         logger.info(
-            f"Created annotation {model.id} for document {data.document_id}")
-        return model
+            f"Created annotation {created_model.id} for document {data.document_id}")
+        return created_model
     except Exception as e:
         logger.error(f"Failed to create annotation: {e}")
         raise HTTPException(
