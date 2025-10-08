@@ -710,14 +710,14 @@ export default function PDFViewerEnhanced({
             const transformedAnnotations = backendAnnotations.map(transformBackendAnnotation);
             setAnnotations(transformedAnnotations);
 
-            // Reset drawing mode
-            setIsDrawingShape(false);
-            setCurrentShapeTool(null);
-            setAnnotationMode(null);
-
             console.log('Shape annotation created successfully', annotationId);
         } catch (err) {
             console.error('Failed to create shape annotation:', err);
+        } finally {
+            // ⚠️ 关键修复：无论成功失败都重置绘制状态
+            setIsDrawingShape(false);
+            setCurrentShapeTool(null);
+            setAnnotationMode(null);
         }
     }, [documentId, currentShapeTool]);
 
@@ -1247,6 +1247,7 @@ export default function PDFViewerEnhanced({
                 mode={annotationMode}
                 shapeTool={currentShapeTool}
                 onModeChange={(mode) => {
+                    console.log('[Toolbar] Mode changed to:', mode);
                     setAnnotationMode(mode);
                     if (mode === 'shape') {
                         setIsDrawingShape(true);
@@ -1256,12 +1257,15 @@ export default function PDFViewerEnhanced({
                         setIsDrawingShape(false);
                         setCurrentShapeTool(null);
                     } else {
+                        // ⚠️ 切换到选择模式或取消：重置所有工具状态
+                        console.log('[Toolbar] Resetting all tool states');
                         setIsDrawingShape(false);
                         setIsPlacingNote(false);
                         setCurrentShapeTool(null);
                     }
                 }}
                 onShapeToolChange={(tool) => {
+                    console.log('[Toolbar] Shape tool changed to:', tool);
                     setCurrentShapeTool(tool);
                     if (tool) {
                         setIsDrawingShape(true);
@@ -1270,6 +1274,7 @@ export default function PDFViewerEnhanced({
                     }
                 }}
                 onCancel={() => {
+                    console.log('[Toolbar] Cancel clicked - resetting all states');
                     setIsDrawingShape(false);
                     setIsPlacingNote(false);
                     setCurrentShapeTool(null);
@@ -1319,7 +1324,18 @@ export default function PDFViewerEnhanced({
                                         />
                                     )}
                                     {/* Draggable annotation layer */}
-                                    {!isDrawingShape && !isPlacingNote && pdfPagesCache.current.has(pageNumber) && (
+                                    {(() => {
+                                        const shouldRender = !isDrawingShape && !isPlacingNote && pdfPagesCache.current.has(pageNumber);
+                                        if (pageNumber === 1) {
+                                            console.log('[DraggableAnnotation] Page 1 render:', {
+                                                shouldRender,
+                                                isDrawingShape,
+                                                isPlacingNote,
+                                                currentShapeTool,
+                                                annotationMode
+                                            });
+                                        }
+                                        return shouldRender ? (
                                         <DraggableAnnotation
                                             pageNumber={pageNumber}
                                             annotations={annotations.filter(a => (a as any).pageNumber === pageNumber) as any[]}
@@ -1330,9 +1346,20 @@ export default function PDFViewerEnhanced({
                                             onMoveComplete={handleAnnotationMove}
                                             onResizeComplete={handleAnnotationResize}
                                         />
-                                    )}
+                                        ) : null;
+                                    })()}
                                     {/* Shape drawing tool */}
-                                    {isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNumber) && (
+                                    {(() => {
+                                        const shouldRender = isDrawingShape && currentShapeTool && pdfPagesCache.current.has(pageNumber);
+                                        if (pageNumber === 1) {
+                                            console.log('[ShapeTool] Page 1 render:', {
+                                                shouldRender,
+                                                isDrawingShape,
+                                                currentShapeTool,
+                                                annotationMode
+                                            });
+                                        }
+                                        return shouldRender ? (
                                         <ShapeTool
                                             pageNumber={pageNumber}
                                             pdfPage={pdfPagesCache.current.get(pageNumber)!}
@@ -1345,7 +1372,8 @@ export default function PDFViewerEnhanced({
                                                 setAnnotationMode(null);
                                             }}
                                         />
-                                    )}
+                                        ) : null;
+                                    })()}
                                     {/* Note tool */}
                                     {isPlacingNote && pdfPagesCache.current.has(pageNumber) && (
                                         <NoteTool
