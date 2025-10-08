@@ -27,8 +27,10 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { AnnotationCanvas } from './annotation/AnnotationCanvas';
 import { ShapeTool } from './annotation/ShapeTool';
 import { SelectTool } from './annotation/SelectTool';
+import { NoteTool } from './annotation/NoteTool';
 import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
+import { historyManager, CreateAnnotationCommand, DeleteAnnotationCommand } from '../services/annotation/HistoryManager';
 import type { Annotation, ToolType } from '../types/annotation';
 import { transformBackendAnnotation } from '../utils/annotation';
 
@@ -456,6 +458,20 @@ export default function PDFViewerEnhanced({
                         handleAnnotationDelete(selectedAnnotationId);
                     }
                     break;
+                case 'z':
+                case 'Z':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        handleUndo();
+                    }
+                    break;
+                case 'y':
+                case 'Y':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        handleRedo();
+                    }
+                    break;
                 case '0':
                     e.preventDefault();
                     fitToWidth();
@@ -714,19 +730,75 @@ export default function PDFViewerEnhanced({
             const confirmed = window.confirm('确定要删除这个标注吗?');
             if (!confirmed) return;
 
-            // Delete from backend
-            await apiService.deleteAnnotation(annotationId);
+            // Create delete command for undo/redo
+            const deleteCommand = new DeleteAnnotationCommand(
+                annotation as any,
+                async (id: string) => {
+                    await apiService.deleteAnnotation(id);
+                    setAnnotations(prev => prev.filter(a => a.id !== id));
+                    setSelectedAnnotationId(null);
+                },
+                async (ann: any) => {
+                    const payload = {
+                        document_id: documentId,
+                        user_id: localStorage.getItem('user_id') || 'anonymous',
+                        annotation_type: ann.type,
+                        page_number: ann.pageNumber,
+                        data: ann,
+                        tags: []
+                    };
+                    await apiService.createAnnotation(payload);
+                    setAnnotations(prev => [...prev, ann]);
+                }
+            );
 
-            // Update local state
-            setAnnotations(prev => prev.filter(a => a.id !== annotationId));
-            setSelectedAnnotationId(null);
+            // Execute command through history manager
+            await historyManager.execute(deleteCommand);
 
             console.log('Annotation deleted:', annotationId);
         } catch (err) {
             console.error('Failed to delete annotation:', err);
             alert('删除标注失败，请重试');
         }
-    }, [annotations]);
+    }, [annotations, documentId]);
+
+    // Handle undo
+    const handleUndo = useCallback(async () => {
+        const success = await historyManager.undo();
+        if (success) {
+            console.log('Undo successful');
+            // Reload annotations from backend
+            try {
+                const resp = await apiService.getAnnotationsForDocument(documentId);
+                const backendAnnotations = resp.annotations || [];
+                const transformedAnnotations = backendAnnotations.map((a: any) => transformBackendAnnotation(a));
+                setAnnotations(transformedAnnotations);
+            } catch (e) {
+                console.error('Failed to reload annotations after undo:', e);
+            }
+        } else {
+            console.log('Nothing to undo');
+        }
+    }, [documentId]);
+
+    // Handle redo
+    const handleRedo = useCallback(async () => {
+        const success = await historyManager.redo();
+        if (success) {
+            console.log('Redo successful');
+            // Reload annotations from backend
+            try {
+                const resp = await apiService.getAnnotationsForDocument(documentId);
+                const backendAnnotations = resp.annotations || [];
+                const transformedAnnotations = backendAnnotations.map((a: any) => transformBackendAnnotation(a));
+                setAnnotations(transformedAnnotations);
+            } catch (e) {
+                console.error('Failed to reload annotations after redo:', e);
+            }
+        } else {
+            console.log('Nothing to redo');
+        }
+    }, [documentId]);
 
     // Handle annotation move
     const handleAnnotationMove = useCallback(async (annotationId: string, newGeometry: any) => {

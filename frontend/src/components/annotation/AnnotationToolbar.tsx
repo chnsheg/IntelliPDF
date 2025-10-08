@@ -4,7 +4,7 @@
  * Floating toolbar for annotation tools
  */
 
-import { FiSquare, FiCircle, FiArrowRight, FiEdit3, FiMessageSquare, FiMousePointer } from 'react-icons/fi';
+import { FiSquare, FiCircle, FiArrowRight, FiMessageSquare, FiMousePointer } from 'react-icons/fi';
 import clsx from 'clsx';
 
 type ShapeType = 'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null;
@@ -119,21 +119,18 @@ export const AnnotationToolbar: React.FC<AnnotationToolbarProps> = ({
                 {/* Divider */}
                 <div className="h-px bg-gray-200 my-1"></div>
 
-                {/* Ink tool (coming soon) */}
+                {/* Note tool */}
                 <button
-                    disabled
-                    className="p-2.5 rounded-lg text-sm text-gray-400 cursor-not-allowed flex items-center gap-2"
-                    title="画笔工具（即将推出）"
-                >
-                    <FiEdit3 size={18} />
-                    <span>画笔</span>
-                </button>
-
-                {/* Note tool (coming soon) */}
-                <button
-                    disabled
-                    className="p-2.5 rounded-lg text-sm text-gray-400 cursor-not-allowed flex items-center gap-2"
-                    title="便笺工具（即将推出）"
+                    onClick={() => {
+                        onModeChange('note');
+                    }}
+                    className={clsx(
+                        'p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm',
+                        mode === 'note'
+                            ? 'bg-yellow-50 text-yellow-700 font-medium'
+                            : 'hover:bg-gray-100 text-gray-700'
+                    )}
+                    title="便笺 (N)"
                 >
                     <FiMessageSquare size={18} />
                     <span>便笺</span>
@@ -151,6 +148,20 @@ export const AnnotationToolbar: React.FC<AnnotationToolbarProps> = ({
                             }</div>
                             <div className="text-blue-500">
                                 点击拖拽绘制
+                                <br />
+                                ESC 取消
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {mode === 'note' && (
+                    <>
+                        <div className="h-px bg-gray-200 my-1"></div>
+                        <div className="px-2 py-1 text-xs text-yellow-700 bg-yellow-50 rounded">
+                            <div className="font-medium mb-1">添加便笺</div>
+                            <div className="text-yellow-600">
+                                点击页面放置
                                 <br />
                                 ESC 取消
                             </div>
