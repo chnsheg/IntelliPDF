@@ -97,7 +97,7 @@ export default function PDFViewerEnhanced({
     // PDF document and pages references for coordinate conversion
     const pdfDocumentRef = useRef<any>(null);  // PDFDocumentProxy
     const pdfPagesCache = useRef<Map<number, any>>(new Map());  // PDFPageProxy cache
-    
+
     // Annotations state (in-memory). For persistence, we can extend to call backend.
     const [annotations, setAnnotations] = useState<Array<{
         id: string;
@@ -171,7 +171,7 @@ export default function PDFViewerEnhanced({
         if (pdfPagesCache.current.has(pageNum)) {
             return pdfPagesCache.current.get(pageNum);
         }
-        
+
         // Load page if not cached
         if (pdfDocumentRef.current) {
             try {
@@ -246,6 +246,46 @@ export default function PDFViewerEnhanced({
             height: Math.abs(y2 - y1),
         };
     }, [scale, getPDFPage]);
+
+    // Annotation Overlay Component with coordinate conversion
+    const AnnotationOverlay = ({ annotation, pageNum }: { 
+        annotation: { id: string; page: number; x: number; y: number; width: number; height: number; style: string; text: string }; 
+        pageNum: number 
+    }) => {
+        const [position, setPosition] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+        useEffect(() => {
+            let mounted = true;
+            convertPDFToScreen(
+                { x: annotation.x, y: annotation.y, width: annotation.width, height: annotation.height },
+                pageNum
+            ).then(pos => {
+                if (mounted && pos) {
+                    setPosition(pos);
+                }
+            });
+            return () => { mounted = false; };
+        }, [annotation, pageNum, scale]);
+
+        if (!position) return null;  // Don't render until we have screen coordinates
+
+        return (
+            <div
+                key={annotation.id}
+                className="absolute pointer-events-none"
+                style={{
+                    left: position.left,
+                    top: position.top,
+                    width: position.width,
+                    height: position.height,
+                    background: annotation.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
+                    textDecoration: annotation.style === 'underline' ? 'underline' : annotation.style === 'strike' ? 'line-through' : undefined,
+                    border: annotation.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
+                }}
+                title={annotation.text}
+            />
+        );
+    };
 
     // Navigation
     const goToPrevPage = useCallback(() => {
@@ -462,13 +502,13 @@ export default function PDFViewerEnhanced({
 
             // Get page element for coordinate conversion
             const pageElement = pageRefs.current.get(pageNumber);
-            
+
             // Try to convert to PDF coordinates
             let pdfCoords = null;
             if (pageElement) {
                 pdfCoords = await convertScreenToPDF(rect, pageElement, pageNumber);
             }
-            
+
             // Fallback to relative coordinates if PDF conversion fails
             const position = pdfCoords || {
                 x: rect.left - (containerRef.current?.getBoundingClientRect().left || 0),
@@ -483,14 +523,14 @@ export default function PDFViewerEnhanced({
                 pageNumber: pageNumber,
                 position: position,
             });
-            
+
             // Show selection toolbar near selection (use screen coordinates for toolbar positioning)
             const containerRect = containerRef.current?.getBoundingClientRect();
             const toolbarPosition = containerRect ? {
                 x: rect.left - containerRect.left,
                 y: rect.top - containerRect.top,
             } : { x: 0, y: 0 };
-            
+
             setSelectionInfo({
                 visible: true,
                 pageNumber: pageNumber,
@@ -582,7 +622,7 @@ export default function PDFViewerEnhanced({
     // Dispatch AI question event - 设置对话上下文
     const dispatchAIQuestion = useCallback(() => {
         if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
-        
+
         // 通知父组件选中文本，设置为AI对话的上下文
         if (onTextSelected) {
             onTextSelected({
@@ -596,7 +636,7 @@ export default function PDFViewerEnhanced({
                 }
             });
         }
-        
+
         // 触发AI问题事件，打开聊天面板并设置上下文
         const payload = {
             documentId,
@@ -862,17 +902,15 @@ export default function PDFViewerEnhanced({
                                     {renderChunkOverlays(pageNumber)}
                                     {renderBookmarkOverlays(pageNumber)}
                                     {annotations.filter(a => a.page === pageNumber).map(a => (
-                                        <div key={a.id} className="absolute pointer-events-none"
-                                            style={{
-                                                left: a.x, top: a.y, width: a.width, height: a.height,
-                                                background: a.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
-                                                textDecoration: a.style === 'underline' ? 'underline' : a.style === 'strike' ? 'line-through' : undefined,
-                                                border: a.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
-                                            }} />
+                                        <AnnotationOverlay key={a.id} annotation={a} pageNum={pageNumber} />
                                     ))}
                                 </div>
                                 {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (
-                                    <div className="selection-toolbar absolute" style={{ left: selectionInfo.x, top: Math.max(selectionInfo.y - 44, 4), zIndex: 60 }}>
+                                    <div className="selection-toolbar absolute" style={{ 
+                                        left: selectionInfo.toolbarX ?? selectionInfo.x, 
+                                        top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4), 
+                                        zIndex: 60 
+                                    }}>
                                         <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                             <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
                                             <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
@@ -905,16 +943,14 @@ export default function PDFViewerEnhanced({
                                             {renderChunkOverlays(pageNum)}
                                             {renderBookmarkOverlays(pageNum)}
                                             {annotations.filter(a => a.page === pageNum).map(a => (
-                                                <div key={a.id} className="absolute pointer-events-none"
-                                                    style={{
-                                                        left: a.x, top: a.y, width: a.width, height: a.height,
-                                                        background: a.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
-                                                        textDecoration: a.style === 'underline' ? 'underline' : a.style === 'strike' ? 'line-through' : undefined,
-                                                        border: a.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
-                                                    }} />
+                                                <AnnotationOverlay key={a.id} annotation={a} pageNum={pageNum} />
                                             ))}
                                             {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (
-                                                <div className="selection-toolbar absolute" style={{ left: selectionInfo.x, top: Math.max(selectionInfo.y - 44, 4), zIndex: 60 }}>
+                                                <div className="selection-toolbar absolute" style={{ 
+                                                    left: selectionInfo.toolbarX ?? selectionInfo.x, 
+                                                    top: Math.max((selectionInfo.toolbarY ?? selectionInfo.y) - 44, 4), 
+                                                    zIndex: 60 
+                                                }}>
                                                     <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                                         <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
                                                         <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>

@@ -111,42 +111,42 @@ export default function DocumentViewerPage() {
                 const ce = e as CustomEvent;
                 const detail = ce.detail || {};
                 if (detail.documentId && detail.documentId !== document?.id) return;
-                
+
                 const page = Number(detail.page_number) || undefined;
                 const selectedText = detail.selected_text || '';
                 const position = detail.position || undefined;
                 const action = detail.action || 'ask'; // 'set_context' or 'ask'
-                
+
                 // 设置选中文本和位置
                 setSelectedText(selectedText);
                 setSelectedTextPosition(position);
                 setCurrentPage(page || 1);
-                
+
                 // 打开聊天面板
                 if (!chatOpen) {
                     setChatOpen(true);
                 }
-                
+
                 // 如果action是'set_context'，触发setTopicContext事件
                 // 否则转发到ChatPanel自动提问
                 if (action === 'set_context') {
-                    window.dispatchEvent(new CustomEvent('setTopicContext', { 
-                        detail: { 
-                            documentId: document?.id, 
-                            page_number: page, 
+                    window.dispatchEvent(new CustomEvent('setTopicContext', {
+                        detail: {
+                            documentId: document?.id,
+                            page_number: page,
                             selected_text: selectedText,
                             position: position,
                             chunk_context: detail.chunk_context // 传递块上下文
-                        } 
+                        }
                     }));
                 } else {
-                    window.dispatchEvent(new CustomEvent('aiQuestionToChat', { 
-                        detail: { 
-                            documentId: document?.id, 
-                            page_number: page, 
+                    window.dispatchEvent(new CustomEvent('aiQuestionToChat', {
+                        detail: {
+                            documentId: document?.id,
+                            page_number: page,
                             selected_text: selectedText,
                             position: position
-                        } 
+                        }
                     }));
                 }
             } catch (err) {

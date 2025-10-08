@@ -24,9 +24,9 @@ interface ChatPanelProps {
     onBookmarkCreated?: () => void;
 }
 
-export default function ChatPanel({ 
-    documentId, 
-    currentPage = 1, 
+export default function ChatPanel({
+    documentId,
+    currentPage = 1,
     selectedText,
     selectedTextPosition,
     onClose,
@@ -36,7 +36,7 @@ export default function ChatPanel({
     const [contextChunks, setContextChunks] = useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { messages, addMessage, setLoading, isLoading } = useChatStore();
-    
+
     // 话题上下文管理
     // topicContext: 当前话题的上下文（选中的文本）
     // topicStartIndex: 当前话题开始的消息索引
@@ -160,7 +160,7 @@ export default function ChatPanel({
             const page = Number(detail.page_number) || currentPage;
             const position = detail.position;
             const context = detail.chunk_context;
-            
+
             if (text && page) {
                 setTopicFromSelection(text, page, position, context);
             }
@@ -176,12 +176,12 @@ export default function ChatPanel({
             try {
                 const ce = e as CustomEvent;
                 const detail = ce.detail || {};
-                
+
                 if (detail.documentId !== documentId) return;
 
                 // 只使用当前话题的对话历史（从topicStartIndex开始）
                 const topicMessages = messages.slice(topicStartIndex);
-                
+
                 if (topicMessages.length === 0) {
                     console.warn('No conversation in current topic');
                     return;
@@ -203,7 +203,7 @@ export default function ChatPanel({
 
                 // 生成书签后，可以选择清除当前话题或保持
                 // clearTopicContext(); // 可选：生成后开始新话题
-                
+
                 if (onBookmarkCreated) {
                     onBookmarkCreated();
                 }
@@ -322,7 +322,7 @@ export default function ChatPanel({
                         >
                             ✕
                         </button>
-                        
+
                         <div className="flex items-center justify-between mb-1 pr-6">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-semibold text-blue-700">📌 当前话题</span>
@@ -338,7 +338,7 @@ export default function ChatPanel({
                         </div>
                     </div>
                 )}
-                
+
                 {/* 生成书签按钮 */}
                 {messages.length > topicStartIndex && (
                     <div className="mb-3 flex justify-end">
@@ -358,7 +358,7 @@ export default function ChatPanel({
                         </button>
                     </div>
                 )}
-                
+
                 <div className="flex gap-3">
                     <input
                         type="text"
