@@ -122,11 +122,18 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
      * 处理鼠标按下
      */
     const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        console.log('DraggableAnnotation: mouseDown event', { 
+            annotationsCount: annotations.length, 
+            hasGeometry: annotations.filter(a => a.geometry).length 
+        });
+
         if (!overlayRef.current) return;
 
         const rect = overlayRef.current.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
+        
+        console.log('Click position:', { x, y });
 
         // 检查是否点击了选中的标注
         if (selectedAnnotationId) {
@@ -156,9 +163,13 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         }
 
         // 检查是否点击了其他标注
+        console.log('Checking annotations for hit:', annotations.length);
         for (let i = annotations.length - 1; i >= 0; i--) {
             const annotation = annotations[i];
-            if (hitTest(x, y, annotation)) {
+            const hit = hitTest(x, y, annotation);
+            console.log(`Annotation ${annotation.id}: hit=${hit}, hasGeometry=${!!annotation.geometry}`);
+            if (hit) {
+                console.log('Annotation selected:', annotation.id);
                 onSelect(annotation.id);
                 event.stopPropagation();
                 return;
@@ -166,6 +177,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         }
 
         // 没有命中任何标注，取消选择
+        console.log('No annotation hit, deselecting');
         onSelect(null);
     }, [annotations, selectedAnnotationId, hitTest, getResizeHandle, onSelect]);
 
@@ -450,7 +462,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
     return (
         <div
             ref={overlayRef}
-            className="absolute inset-0 z-30"
+            className="absolute inset-0 z-30 pointer-events-auto"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}

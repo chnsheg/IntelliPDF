@@ -807,7 +807,10 @@ export default function PDFViewerEnhanced({
     const handleAnnotationSelect = useCallback((annotationId: string | null) => {
         setSelectedAnnotationId(annotationId);
         console.log('Annotation selected:', annotationId);
-    }, []);
+        if (annotationId) {
+            console.log('Selected annotation details:', annotations.find(a => a.id === annotationId));
+        }
+    }, [annotations]);
 
     // Handle annotation delete
     const handleAnnotationDelete = useCallback(async (annotationId: string) => {
