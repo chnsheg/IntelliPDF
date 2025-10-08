@@ -412,118 +412,6 @@ class BookmarkModel(Base, TimestampMixin):
         return f"<BookmarkModel(id={self.id}, user_id={self.user_id}, document_id={self.document_id}, page={self.page_number})>"
 
 
-class AnnotationModel(Base, TimestampMixin):
-    """Text annotation model for PDF content (highlights, underlines, strikethrough, etc.)."""
-
-    __tablename__ = "annotations"
-
-    # Primary Key
-    id: Mapped[str] = mapped_column(
-        String(36),
-        primary_key=True,
-        default=generate_uuid,
-        comment="Annotation unique identifier"
-    )
-
-    # Foreign Keys
-    user_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Owner user ID"
-    )
-    document_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("documents.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Associated document ID"
-    )
-    chunk_id: Mapped[Optional[str]] = mapped_column(
-        String(36),
-        ForeignKey("chunks.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="Associated chunk ID"
-    )
-
-    # Annotation Type
-    annotation_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        index=True,
-        comment="Type: highlight, underline, strikethrough, tag"
-    )
-
-    # Selected Text & Position
-    content: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        comment="Annotated text content"
-    )
-    page_number: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        index=True,
-        comment="Page number of annotation"
-    )
-
-    # Position (Bounding Box)
-    position_x: Mapped[float] = mapped_column(
-        Float,
-        nullable=False,
-        comment="X coordinate"
-    )
-    position_y: Mapped[float] = mapped_column(
-        Float,
-        nullable=False,
-        comment="Y coordinate"
-    )
-    position_width: Mapped[float] = mapped_column(
-        Float,
-        nullable=False,
-        comment="Width"
-    )
-    position_height: Mapped[float] = mapped_column(
-        Float,
-        nullable=False,
-        comment="Height"
-    )
-
-    # Style
-    color: Mapped[str] = mapped_column(
-        String(7),
-        nullable=False,
-        default="#FFFF00",
-        comment="Color (hex)"
-    )
-
-    # Optional Tag Reference (for tag-type annotations)
-    tag_id: Mapped[Optional[str]] = mapped_column(
-        String(36),
-        ForeignKey("tags.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="Associated tag ID if annotation_type is 'tag'"
-    )
-
-    # User Notes
-    notes: Mapped[Optional[str]] = mapped_column(
-        Text,
-        nullable=True,
-        comment="User notes for this annotation"
-    )
-
-    # Indexes
-    __table_args__ = (
-        Index("idx_annotations_user_document", "user_id", "document_id"),
-        Index("idx_annotations_page", "document_id", "page_number"),
-        Index("idx_annotations_type", "annotation_type"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<AnnotationModel(id={self.id}, type={self.annotation_type}, page={self.page_number})>"
-
-
 class TagModel(Base, TimestampMixin):
     """Tag model for organizing annotations and bookmarks."""
 
@@ -674,3 +562,175 @@ class AIQuestionModel(Base, TimestampMixin):
 
 # Simplified models - remove complex features not needed initially
 # We can add KnowledgeNode, KnowledgeEdge, ChatSession, ChatMessage later
+
+
+class AnnotationModel(Base, TimestampMixin):
+    """
+    PDF Annotation database model.
+    Stores all types of annotations: text markup, shapes, ink, notes, etc.
+    """
+
+    __tablename__ = "annotations"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Annotation unique identifier"
+    )
+
+    # Foreign Keys
+    document_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Related document ID"
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+        comment="User who created the annotation"
+    )
+
+    # Annotation Type
+    annotation_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+        comment="Type: text-markup, shape, ink, textbox, note, stamp, signature"
+    )
+
+    # Page Information
+    page_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+        comment="Page number (1-indexed)"
+    )
+
+    # Complete Annotation Data (JSON)
+    # Stores textAnchor, pdfCoordinates, style, and other type-specific data
+    data: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        comment="Complete annotation data (textAnchor, pdfCoordinates, style, etc.)"
+    )
+
+    # Quick Access Fields (denormalized for performance)
+    content: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Text content (for text-based annotations)"
+    )
+    color: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Annotation color (hex)"
+    )
+
+    # Tags (for filtering)
+    tags: Mapped[list] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        comment="User-defined tags"
+    )
+
+    # Metadata
+    user_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Username for display"
+    )
+
+    # Relationships
+    document: Mapped["DocumentModel"] = relationship(
+        "DocumentModel",
+        backref="annotations"
+    )
+
+    # Indexes for common queries
+    __table_args__ = (
+        Index("idx_annotations_document_page", "document_id", "page_number"),
+        Index("idx_annotations_user", "user_id", "created_at"),
+        Index("idx_annotations_type", "annotation_type", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnnotationModel(id={self.id}, type={self.annotation_type}, page={self.page_number})>"
+
+
+class AnnotationReplyModel(Base, TimestampMixin):
+    """
+    Annotation reply/comment model.
+    Supports threaded discussions on annotations.
+    """
+
+    __tablename__ = "annotation_replies"
+
+    # Primary Key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+        comment="Reply unique identifier"
+    )
+
+    # Foreign Keys
+    annotation_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("annotations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Parent annotation ID"
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+        comment="User who created the reply"
+    )
+    parent_reply_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("annotation_replies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="Parent reply ID (for threading)"
+    )
+
+    # Content
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Reply text content"
+    )
+
+    # Metadata
+    user_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Username for display"
+    )
+
+    # Relationships
+    annotation: Mapped["AnnotationModel"] = relationship(
+        "AnnotationModel",
+        backref="replies"
+    )
+    parent_reply: Mapped[Optional["AnnotationReplyModel"]] = relationship(
+        "AnnotationReplyModel",
+        remote_side=[id],
+        backref="child_replies"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_replies_annotation", "annotation_id", "created_at"),
+        Index("idx_replies_user", "user_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnnotationReplyModel(id={self.id}, annotation_id={self.annotation_id})>"

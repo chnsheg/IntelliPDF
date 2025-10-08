@@ -4,7 +4,7 @@ Annotation API endpoints.
 Provides CRUD endpoints to create, list, update and delete annotations.
 """
 
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +16,7 @@ from ....schemas.annotation import (
     AnnotationListResponse,
     AnnotationUpdate,
 )
-from ....schemas.user import UserResponse
 from ....repositories.annotation_repository import AnnotationRepository
-from ...dependencies.auth import get_current_active_user
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -35,35 +33,30 @@ async def get_annotation_repo(db: AsyncSession = Depends(get_db)) -> AnnotationR
 )
 async def create_annotation(
     data: AnnotationCreate,
-    current_user: UserResponse = Depends(get_current_active_user),
     repo: AnnotationRepository = Depends(get_annotation_repo),
 ):
+    """Create a new PDF annotation"""
     try:
-        # Ensure user_id matches authenticated
-        if data.user_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="user_id mismatch")
-
         model = await repo.create(
-            **{
-                "document_id": data.document_id,
-                "user_id": data.user_id,
-                "annotation_type": data.annotation_type,
-                "page_number": data.page_number,
-                "position": data.position.dict() if data.position else None,
-                "color": data.color,
-                "content": data.content,
-                "tags": data.tags or [],
-            }
+            document_id=data.document_id,
+            user_id=data.user_id,
+            annotation_type=data.annotation_type,
+            page_number=data.page_number,
+            data=data.data,  # Store complete annotation data as JSON
+            content=data.content,
+            color=data.color,
+            tags=data.tags,
+            user_name=data.user_name,
         )
 
+        logger.info(f"Created annotation {model.id} for document {data.document_id}")
         return model
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to create annotation: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.get(
@@ -72,73 +65,101 @@ async def create_annotation(
 )
 async def get_annotations_for_document(
     document_id: str,
-    current_user: UserResponse = Depends(get_current_active_user),
+    page_number: Optional[int] = None,
+    annotation_type: Optional[str] = None,
+    limit: int = 1000,
+    offset: int = 0,
     repo: AnnotationRepository = Depends(get_annotation_repo),
 ):
+    """Get all annotations for a document with optional filtering"""
     try:
-        items = await repo.get_by_document(document_id=document_id, user_id=current_user.id)
-        return AnnotationListResponse(annotations=items, total=len(items))
+        annotations, total = await repo.get_by_document(
+            document_id=document_id,
+            page_number=page_number,
+            annotation_type=annotation_type,
+            limit=limit,
+            offset=offset
+        )
+        
+        has_more = (offset + len(annotations)) < total
+        page = offset // limit + 1 if limit > 0 else 1
+        
+        return AnnotationListResponse(
+            annotations=annotations,
+            total=total,
+            page=page,
+            page_size=limit,
+            has_more=has_more
+        )
     except Exception as e:
         logger.error(f"Failed to get annotations: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
-@router.put("/{annotation_id}", response_model=AnnotationResponse)
+@router.patch("/{annotation_id}", response_model=AnnotationResponse)
 async def update_annotation(
     annotation_id: str,
     update: AnnotationUpdate,
-    current_user: UserResponse = Depends(get_current_active_user),
     repo: AnnotationRepository = Depends(get_annotation_repo),
 ):
+    """Update an existing annotation"""
     try:
         model = await repo.get_by_id(annotation_id)
         if not model:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-        if model.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation not found"
+            )
 
-        # Apply updates
-        data = {}
-        if update.color is not None:
-            data["color"] = update.color
+        # Build update dictionary from non-None fields
+        update_data = {}
+        if update.data is not None:
+            update_data["data"] = update.data
         if update.content is not None:
-            data["content"] = update.content
+            update_data["content"] = update.content
+        if update.color is not None:
+            update_data["color"] = update.color
         if update.tags is not None:
-            data["tags"] = update.tags
+            update_data["tags"] = update.tags
 
-        updated = await repo.update(model, **data)
+        updated = await repo.update(model, **update_data)
+        logger.info(f"Updated annotation {annotation_id}")
         return updated
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to update annotation: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.delete("/{annotation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_annotation(
     annotation_id: str,
-    current_user: UserResponse = Depends(get_current_active_user),
     repo: AnnotationRepository = Depends(get_annotation_repo),
 ):
+    """Delete an annotation"""
     try:
         model = await repo.get_by_id(annotation_id)
         if not model:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-        if model.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation not found"
+            )
 
         await repo.delete(model)
+        logger.info(f"Deleted annotation {annotation_id}")
         return None
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to delete annotation: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

@@ -23,6 +23,11 @@ import clsx from 'clsx';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
+// Import new annotation system
+import { AnnotationCanvas } from './annotation/AnnotationCanvas';
+import { annotationManager } from '../services/annotation/AnnotationManager';
+import type { Annotation, ToolType } from '../types/annotation';
+
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
@@ -98,45 +103,53 @@ export default function PDFViewerEnhanced({
     const pdfDocumentRef = useRef<any>(null);  // PDFDocumentProxy
     const pdfPagesCache = useRef<Map<number, any>>(new Map());  // PDFPageProxy cache
 
-    // Annotations state (in-memory). For persistence, we can extend to call backend.
-    const [annotations, setAnnotations] = useState<Array<{
-        id: string;
-        page: number;
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        style: 'highlight' | 'underline' | 'strike' | 'tag';
-        tagId?: string;
-        text: string;
-    }>>([]);
+    // New annotation system state
+    const [annotations, setAnnotations] = useState<Annotation[]>([]);
+    const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
+    const [currentTool, setCurrentTool] = useState<ToolType>('select');
 
-    // Load persisted annotations for this document
+    // Initialize annotation manager and load annotations
     useEffect(() => {
         let mounted = true;
-        const load = async () => {
+
+        // Setup annotation manager event listeners
+        const handleAnnotationsChanged = (updatedAnnotations: Annotation[]) => {
+            if (mounted) {
+                setAnnotations(updatedAnnotations);
+            }
+        };
+
+        const handleSelectionChanged = (selectedIds: string[]) => {
+            if (mounted) {
+                setSelectedAnnotationIds(selectedIds);
+            }
+        };
+
+        annotationManager.on('annotationsChanged', handleAnnotationsChanged);
+        annotationManager.on('selectionChanged', handleSelectionChanged);
+
+        // Load persisted annotations from backend
+        const loadAnnotations = async () => {
             if (!documentId) return;
             try {
                 const resp = await apiService.getAnnotationsForDocument(documentId);
                 if (!mounted) return;
-                // resp.annotations expected
-                const items = (resp.annotations || []).map((a: any) => ({
-                    id: a.id,
-                    page: a.page_number || a.page || 1,
-                    x: a.position?.x ?? 0,
-                    y: a.position?.y ?? 0,
-                    width: a.position?.width ?? 0,
-                    height: a.position?.height ?? 0,
-                    style: (a.annotation_type || 'highlight') as any,
-                    text: a.content || '',
-                }));
-                setAnnotations(items);
+                // TODO: Transform backend response to Annotation[] format
+                // For now, just use the annotation manager's state
+                const currentAnnotations = annotationManager.getAnnotations();
+                setAnnotations(currentAnnotations);
             } catch (e) {
                 console.warn('Failed to load annotations', e);
             }
         };
-        load();
-        return () => { mounted = false; };
+
+        loadAnnotations();
+
+        return () => {
+            mounted = false;
+            annotationManager.off('annotationsChanged', handleAnnotationsChanged);
+            annotationManager.off('selectionChanged', handleSelectionChanged);
+        };
     }, [documentId]);
 
     // Selection toolbar state
@@ -184,6 +197,11 @@ export default function PDFViewerEnhanced({
             }
         }
         return null;
+    }, []);
+
+    // Callback for when a PDF page is loaded (to cache it for annotations)
+    const onPageLoadSuccess = useCallback((page: any) => {
+        pdfPagesCache.current.set(page.pageNumber, page);
     }, []);
 
     // Convert screen coordinates to PDF coordinates
@@ -246,46 +264,6 @@ export default function PDFViewerEnhanced({
             height: Math.abs(y2 - y1),
         };
     }, [scale, getPDFPage]);
-
-    // Annotation Overlay Component with coordinate conversion
-    const AnnotationOverlay = ({ annotation, pageNum }: {
-        annotation: { id: string; page: number; x: number; y: number; width: number; height: number; style: string; text: string };
-        pageNum: number
-    }) => {
-        const [position, setPosition] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-
-        useEffect(() => {
-            let mounted = true;
-            convertPDFToScreen(
-                { x: annotation.x, y: annotation.y, width: annotation.width, height: annotation.height },
-                pageNum
-            ).then(pos => {
-                if (mounted && pos) {
-                    setPosition(pos);
-                }
-            });
-            return () => { mounted = false; };
-        }, [annotation, pageNum, scale]);
-
-        if (!position) return null;  // Don't render until we have screen coordinates
-
-        return (
-            <div
-                key={annotation.id}
-                className="absolute pointer-events-none"
-                style={{
-                    left: position.left,
-                    top: position.top,
-                    width: position.width,
-                    height: position.height,
-                    background: annotation.style === 'highlight' ? 'rgba(250,235,150,0.45)' : undefined,
-                    textDecoration: annotation.style === 'underline' ? 'underline' : annotation.style === 'strike' ? 'line-through' : undefined,
-                    border: annotation.style === 'tag' ? '2px dashed rgba(251,146,60,0.6)' : undefined
-                }}
-                title={annotation.text}
-            />
-        );
-    };
 
     // Navigation
     const goToPrevPage = useCallback(() => {
@@ -565,59 +543,80 @@ export default function PDFViewerEnhanced({
         };
     }, []);
 
-    // Helper to create annotation and emit event (optimistic + persist)
-    const createAnnotation = useCallback(async (style: 'highlight' | 'underline' | 'strike' | 'tag') => {
+    // Helper to create annotation using new annotation system
+    const createAnnotation = useCallback(async (annotationType: 'highlight' | 'underline' | 'strikethrough' | 'squiggly') => {
         if (!selectionInfo.visible || !selectionInfo.pageNumber) return;
-        const id = `anno_${Date.now()}`;
-        const anno = {
-            id,
-            page: selectionInfo.pageNumber,
-            x: selectionInfo.x,
-            y: selectionInfo.y,
-            width: selectionInfo.width,
-            height: selectionInfo.height,
-            style,
-            text: selectionInfo.text,
-        };
 
-        // Optimistic update
-        setAnnotations(prev => [...prev, anno]);
+        // Get current selection and PDF page
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) return;
 
-        // Prepare payload for backend
-        const payload = {
-            document_id: documentId,
-            user_id: localStorage.getItem('user_id') || 'anonymous',
-            annotation_type: style,
-            page_number: selectionInfo.pageNumber,
-            position: {
-                x: selectionInfo.x,
-                y: selectionInfo.y,
-                width: selectionInfo.width,
-                height: selectionInfo.height,
-            },
-            color: style === 'highlight' ? '#FCD34D' : undefined,
-            content: selectionInfo.text,
-            tags: [],
-        };
-
-        try {
-            const saved = await apiService.createAnnotation(payload);
-            // Replace optimistic id with real id
-            setAnnotations(prev => prev.map(a => a.id === id ? { ...a, id: saved.id } : a));
-            // emit an event so other components (e.g., BookmarkPanel) can listen
-            try {
-                window.dispatchEvent(new CustomEvent('annotationCreated', { detail: saved }));
-            } catch (e) {
-                console.warn('Failed to dispatch annotationCreated', e);
-            }
-        } catch (err) {
-            console.error('Failed to save annotation', err);
-            // leave optimistic annotation but mark as unsynced (not implemented UI)
+        // Get PDF page for the current page
+        const pdfPage = await getPDFPage(selectionInfo.pageNumber);
+        if (!pdfPage) {
+            console.error('Failed to get PDF page for annotation');
+            return;
         }
 
-        // hide toolbar after creation
+        try {
+            // Create annotation using the new annotation manager
+            const annotation = await annotationManager.createTextMarkupAnnotation(
+                selection,
+                selectionInfo.pageNumber,
+                pdfPage,
+                documentId,
+                localStorage.getItem('user_id') || 'anonymous',
+                localStorage.getItem('user_name') || 'Anonymous User'
+            );
+
+            // Set the annotation type and style
+            annotation.style.type = annotationType;
+            if (annotationType === 'highlight') {
+                annotation.style.color = '#FAEB96';
+                annotation.style.opacity = 0.45;
+            } else if (annotationType === 'underline') {
+                annotation.style.color = '#3B82F6';
+                annotation.style.opacity = 1.0;
+            } else if (annotationType === 'strikethrough') {
+                annotation.style.color = '#EF4444';
+                annotation.style.opacity = 1.0;
+            } else if (annotationType === 'squiggly') {
+                annotation.style.color = '#10B981';
+                annotation.style.opacity = 1.0;
+            }
+
+            // Persist to backend
+            const payload = {
+                document_id: documentId,
+                user_id: annotation.metadata.userId,
+                annotation_type: annotationType,
+                page_number: selectionInfo.pageNumber,
+                // Store the full annotation data as JSON
+                data: JSON.stringify({
+                    textAnchor: annotation.textAnchor,
+                    pdfCoordinates: annotation.pdfCoordinates,
+                    style: annotation.style,
+                }),
+                content: annotation.textAnchor.selectedText,
+                tags: [],
+            };
+
+            const saved = await apiService.createAnnotation(payload);
+            
+            // Update annotation ID with backend ID
+            annotation.id = saved.id;
+            annotationManager.updateAnnotation(annotation.id, { id: saved.id });
+
+            // Emit event for other components
+            window.dispatchEvent(new CustomEvent('annotationCreated', { detail: saved }));
+
+        } catch (err) {
+            console.error('Failed to create annotation', err);
+        }
+
+        // Hide toolbar after creation
         setSelectionInfo(prev => ({ ...prev, visible: false }));
-    }, [selectionInfo, documentId]);
+    }, [selectionInfo, documentId, getPDFPage]);
 
     // Dispatch AI question event - 设置对话上下文
     const dispatchAIQuestion = useCallback(() => {
@@ -897,13 +896,22 @@ export default function PDFViewerEnhanced({
                                     renderTextLayer={true}
                                     renderAnnotationLayer={true}
                                     className="shadow-2xl"
+                                    onLoadSuccess={onPageLoadSuccess}
                                 />
                                 <div className="absolute inset-0 pointer-events-auto">
                                     {renderChunkOverlays(pageNumber)}
                                     {renderBookmarkOverlays(pageNumber)}
-                                    {annotations.filter(a => a.page === pageNumber).map(a => (
-                                        <AnnotationOverlay key={a.id} annotation={a} pageNum={pageNumber} />
-                                    ))}
+                                    {/* New annotation system */}
+                                    {pdfPagesCache.current.has(pageNumber) && (
+                                        <AnnotationCanvas
+                                            pageNumber={pageNumber}
+                                            annotations={annotations}
+                                            scale={scale}
+                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                            selectedAnnotationIds={selectedAnnotationIds}
+                                            onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                        />
+                                    )}
                                 </div>
                                 {selectionInfo.visible && selectionInfo.pageNumber === pageNumber && (
                                     <div className="selection-toolbar absolute" style={{
@@ -914,8 +922,8 @@ export default function PDFViewerEnhanced({
                                         <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                             <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
                                             <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
-                                            <button onClick={() => createAnnotation('strike')} className="text-xs px-2 py-0.5">删除线</button>
-                                            <button onClick={() => createAnnotation('tag')} className="text-xs px-2 py-0.5">生成标签</button>
+                                            <button onClick={() => createAnnotation('strikethrough')} className="text-xs px-2 py-0.5">删除线</button>
+                                            <button onClick={() => createAnnotation('squiggly')} className="text-xs px-2 py-0.5">波浪线</button>
                                             <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
                                         </div>
                                     </div>
@@ -938,13 +946,22 @@ export default function PDFViewerEnhanced({
                                             renderTextLayer={true}
                                             renderAnnotationLayer={true}
                                             className="shadow-lg"
+                                            onLoadSuccess={onPageLoadSuccess}
                                         />
                                         <div className="absolute inset-0 pointer-events-auto">
                                             {renderChunkOverlays(pageNum)}
                                             {renderBookmarkOverlays(pageNum)}
-                                            {annotations.filter(a => a.page === pageNum).map(a => (
-                                                <AnnotationOverlay key={a.id} annotation={a} pageNum={pageNum} />
-                                            ))}
+                                            {/* New annotation system */}
+                                            {pdfPagesCache.current.has(pageNum) && (
+                                                <AnnotationCanvas
+                                                    pageNumber={pageNum}
+                                                    annotations={annotations}
+                                                    scale={scale}
+                                                    pdfPage={pdfPagesCache.current.get(pageNum)!}
+                                                    selectedAnnotationIds={selectedAnnotationIds}
+                                                    onAnnotationClick={(id) => annotationManager.selectAnnotation(id)}
+                                                />
+                                            )}
                                             {selectionInfo.visible && selectionInfo.pageNumber === pageNum && (
                                                 <div className="selection-toolbar absolute" style={{
                                                     left: selectionInfo.toolbarX ?? selectionInfo.x,
@@ -954,8 +971,8 @@ export default function PDFViewerEnhanced({
                                                     <div className="flex gap-1 bg-white rounded shadow px-2 py-1">
                                                         <button onClick={() => createAnnotation('highlight')} className="text-xs px-2 py-0.5">高亮</button>
                                                         <button onClick={() => createAnnotation('underline')} className="text-xs px-2 py-0.5">下划线</button>
-                                                        <button onClick={() => createAnnotation('strike')} className="text-xs px-2 py-0.5">删除线</button>
-                                                        <button onClick={() => createAnnotation('tag')} className="text-xs px-2 py-0.5">生成标签</button>
+                                                        <button onClick={() => createAnnotation('strikethrough')} className="text-xs px-2 py-0.5">删除线</button>
+                                                        <button onClick={() => createAnnotation('squiggly')} className="text-xs px-2 py-0.5">波浪线</button>
                                                         <button onClick={dispatchAIQuestion} className="text-xs px-2 py-0.5 text-blue-600">AI 提问</button>
                                                     </div>
                                                 </div>

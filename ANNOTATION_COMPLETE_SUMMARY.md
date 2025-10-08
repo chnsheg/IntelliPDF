@@ -81,37 +81,37 @@
 
 ### 前端代码
 
-| 模块 | 文件 | 行数 | 状态 |
-|------|------|------|------|
-| 类型系统 | annotation.ts | 640 | ✅ 完成 |
-| 工具函数 | utils/annotation.ts | 380 | ✅ 完成 |
-| 文本锚点 | textAnchor.ts | 200 | ✅ 完成 |
-| PDF坐标 | pdfCoordinates.ts | 260 | ✅ 完成 |
-| Canvas渲染 | AnnotationCanvas.tsx | 440 | ✅ 完成 |
-| 标注管理器 | AnnotationManager.ts | 310 | ✅ 完成 |
-| **前端总计** | **6个文件** | **2230行** | **100%** |
+| 模块         | 文件                 | 行数       | 状态     |
+| ------------ | -------------------- | ---------- | -------- |
+| 类型系统     | annotation.ts        | 640        | ✅ 完成   |
+| 工具函数     | utils/annotation.ts  | 380        | ✅ 完成   |
+| 文本锚点     | textAnchor.ts        | 200        | ✅ 完成   |
+| PDF坐标      | pdfCoordinates.ts    | 260        | ✅ 完成   |
+| Canvas渲染   | AnnotationCanvas.tsx | 440        | ✅ 完成   |
+| 标注管理器   | AnnotationManager.ts | 310        | ✅ 完成   |
+| **前端总计** | **6个文件**          | **2230行** | **100%** |
 
 ### 后端代码（设计完成，待实现）
 
-| 模块 | 文件 | 预计行数 | 状态 |
-|------|------|----------|------|
-| 数据库模型 | annotation_model.py | 80 | ⏳ 设计完成 |
-| Schemas | annotation.py | 200 | ⏳ 设计完成 |
-| Repository | annotation_repository.py | 150 | ⏳ 设计完成 |
-| API端点 | annotations.py | 300 | ⏳ 设计完成 |
-| 迁移脚本 | xxxx_add_annotations.py | 70 | ⏳ 设计完成 |
-| **后端总计** | **5个文件** | **800行** | **设计完成** |
+| 模块         | 文件                     | 预计行数  | 状态         |
+| ------------ | ------------------------ | --------- | ------------ |
+| 数据库模型   | annotation_model.py      | 80        | ⏳ 设计完成   |
+| Schemas      | annotation.py            | 200       | ⏳ 设计完成   |
+| Repository   | annotation_repository.py | 150       | ⏳ 设计完成   |
+| API端点      | annotations.py           | 300       | ⏳ 设计完成   |
+| 迁移脚本     | xxxx_add_annotations.py  | 70        | ⏳ 设计完成   |
+| **后端总计** | **5个文件**              | **800行** | **设计完成** |
 
 ### 文档
 
-| 文档 | 文件 | 行数 | 内容 |
-|------|------|------|------|
-| 系统设计 | ANNOTATION_SYSTEM_REDESIGN.md | 1200 | 完整技术方案 |
-| 实现计划 | ANNOTATION_IMPLEMENTATION_PLAN.md | 800 | 10天详细计划 |
-| 进度报告 | ANNOTATION_PROGRESS_REPORT.md | 400 | 当前进度 |
-| 后端设计 | BACKEND_API_DESIGN.md | 600 | API完整设计 |
-| 实现状态 | ANNOTATION_IMPLEMENTATION_STATUS.md | 200 | MVP策略 |
-| **文档总计** | **5个文档** | **3200行** | **完整** |
+| 文档         | 文件                                | 行数       | 内容         |
+| ------------ | ----------------------------------- | ---------- | ------------ |
+| 系统设计     | ANNOTATION_SYSTEM_REDESIGN.md       | 1200       | 完整技术方案 |
+| 实现计划     | ANNOTATION_IMPLEMENTATION_PLAN.md   | 800        | 10天详细计划 |
+| 进度报告     | ANNOTATION_PROGRESS_REPORT.md       | 400        | 当前进度     |
+| 后端设计     | BACKEND_API_DESIGN.md               | 600        | API完整设计  |
+| 实现状态     | ANNOTATION_IMPLEMENTATION_STATUS.md | 200        | MVP策略      |
+| **文档总计** | **5个文档**                         | **3200行** | **完整**     |
 
 ---
 

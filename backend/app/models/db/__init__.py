@@ -8,6 +8,7 @@ from .models_simple import (
     UserModel,
     BookmarkModel,
     AnnotationModel,
+    AnnotationReplyModel,
     TagModel,
     AIQuestionModel,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "UserModel",
     "BookmarkModel",
     "AnnotationModel",
+    "AnnotationReplyModel",
     "TagModel",
     "AIQuestionModel",
 ]

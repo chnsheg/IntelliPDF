@@ -14,17 +14,17 @@
 
 ### 端点列表
 
-| 方法 | 路径 | 功能 | 状态 |
-|------|------|------|------|
-| POST | `/annotations` | 创建标注 | ⏳ 待实现 |
-| GET | `/annotations` | 获取所有标注 | ⏳ 待实现 |
-| GET | `/annotations/{id}` | 获取单个标注 | ⏳ 待实现 |
-| PATCH | `/annotations/{id}` | 更新标注 | ⏳ 待实现 |
-| DELETE | `/annotations/{id}` | 删除标注 | ⏳ 待实现 |
-| POST | `/annotations/batch` | 批量创建 | ⏳ 待实现 |
-| DELETE | `/annotations/batch` | 批量删除 | ⏳ 待实现 |
-| GET | `/annotations/export/xfdf` | 导出XFDF | ⏳ 待实现 |
-| POST | `/annotations/import/xfdf` | 导入XFDF | ⏳ 待实现 |
+| 方法   | 路径                       | 功能         | 状态     |
+| ------ | -------------------------- | ------------ | -------- |
+| POST   | `/annotations`             | 创建标注     | ⏳ 待实现 |
+| GET    | `/annotations`             | 获取所有标注 | ⏳ 待实现 |
+| GET    | `/annotations/{id}`        | 获取单个标注 | ⏳ 待实现 |
+| PATCH  | `/annotations/{id}`        | 更新标注     | ⏳ 待实现 |
+| DELETE | `/annotations/{id}`        | 删除标注     | ⏳ 待实现 |
+| POST   | `/annotations/batch`       | 批量创建     | ⏳ 待实现 |
+| DELETE | `/annotations/batch`       | 批量删除     | ⏳ 待实现 |
+| GET    | `/annotations/export/xfdf` | 导出XFDF     | ⏳ 待实现 |
+| POST   | `/annotations/import/xfdf` | 导入XFDF     | ⏳ 待实现 |
 
 ---
 
