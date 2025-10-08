@@ -704,6 +704,12 @@ export default function PDFViewerEnhanced({
             // Save to backend
             await apiService.createAnnotation(annotationPayload);
 
+            // Reload annotations to display the new annotation
+            const resp = await apiService.getAnnotationsForDocument(documentId);
+            const backendAnnotations = resp.annotations || [];
+            const transformedAnnotations = backendAnnotations.map(transformBackendAnnotation);
+            setAnnotations(transformedAnnotations);
+
             // Reset drawing mode
             setIsDrawingShape(false);
             setCurrentShapeTool(null);
@@ -718,7 +724,7 @@ export default function PDFViewerEnhanced({
     // Handle note complete
     const handleNoteComplete = useCallback(async (note: any) => {
         try {
-            // Add to local state temporarily
+            // Add to local state temporarily for editing
             setNoteAnnotations(prev => [...prev, note]);
             console.log('Note placed:', note.id);
         } catch (err) {
@@ -775,6 +781,9 @@ export default function PDFViewerEnhanced({
             );
 
             await historyManager.execute(createCommand);
+
+            // Remove from temporary note annotations (now in main annotations list)
+            setNoteAnnotations(prev => prev.filter(n => n.id !== noteId));
 
             console.log('Note saved successfully', noteId);
         } catch (err) {
@@ -1340,7 +1349,22 @@ export default function PDFViewerEnhanced({
                                             pageNumber={pageNumber}
                                             pdfPage={pdfPagesCache.current.get(pageNumber)!}
                                             scale={scale}
-                                            notes={noteAnnotations.filter(n => n.pageNumber === pageNumber)}
+                                            notes={[
+                                                // 临时便笺（未保存）
+                                                ...noteAnnotations.filter(n => n.pageNumber === pageNumber),
+                                                // 已保存的便笺（从 annotations 中提取）
+                                                ...annotations
+                                                    .filter(a => a.type === 'note' && (a as any).pageNumber === pageNumber)
+                                                    .map((a: any) => ({
+                                                        id: a.id,
+                                                        pageNumber: a.pageNumber,
+                                                        position: a.position || a.point,
+                                                        content: a.content || '',
+                                                        color: a.color || a.style?.color || '#FFD54F',
+                                                        author: a.author || a.metadata?.userName,
+                                                        createdAt: a.createdAt || a.metadata?.createdAt
+                                                    }))
+                                            ]}
                                             onNoteComplete={handleNoteComplete}
                                             onNoteUpdate={handleNoteUpdate}
                                             onNoteDelete={handleNoteDelete}
