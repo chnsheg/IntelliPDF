@@ -50,7 +50,7 @@ async def create_annotation(
             tags=data.tags,
             user_name=data.user_name,
         )
-        
+
         # Save to database
         created_model = await repo.create(model)
 

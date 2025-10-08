@@ -385,3 +385,71 @@ export function blobToDataURL(blob: Blob): Promise<string> {
         reader.readAsDataURL(blob);
     });
 }
+
+// ============================================================
+// 后端数据转换
+// ============================================================
+
+/**
+ * 将后端标注数据转换为前端 Annotation 格式
+ */
+export function transformBackendAnnotation(backendAnnotation: any): any {
+    const { annotation_type, data, page_number, user_id, user_name, created_at, id } = backendAnnotation;
+    
+    // 解析 data 字段（可能是字符串或对象）
+    const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+    
+    if (annotation_type === 'shape') {
+        // 图形标注
+        return {
+            id: parsedData.id || id,
+            type: 'shape',
+            pageNumber: page_number,
+            geometry: parsedData.geometry,
+            style: {
+                type: parsedData.shapeType,
+                color: parsedData.style?.color || '#2196F3',
+                opacity: parsedData.style?.opacity || 0.8,
+                strokeWidth: parsedData.style?.strokeWidth || 2,
+                fillColor: parsedData.style?.fillColor,
+                fillOpacity: parsedData.style?.fillOpacity || 0.2,
+                lineStyle: parsedData.style?.lineStyle || 'solid',
+            },
+            metadata: {
+                createdAt: created_at,
+                updatedAt: backendAnnotation.updated_at,
+                userId: user_id,
+                userName: user_name || 'Anonymous',
+            },
+        };
+    } else if (annotation_type === 'text-markup') {
+        // 文本标注（高亮、下划线等）
+        return {
+            id: parsedData.id || id,
+            type: 'text-markup',
+            subtype: parsedData.subtype,
+            textAnchor: parsedData.textAnchor,
+            pdfCoordinates: parsedData.pdfCoordinates,
+            style: parsedData.style,
+            metadata: {
+                createdAt: created_at,
+                updatedAt: backendAnnotation.updated_at,
+                userId: user_id,
+                userName: user_name || 'Anonymous',
+            },
+        };
+    }
+    
+    // 其他类型标注
+    return {
+        ...parsedData,
+        id: parsedData.id || id,
+        pageNumber: page_number,
+        metadata: {
+            createdAt: created_at,
+            updatedAt: backendAnnotation.updated_at,
+            userId: user_id,
+            userName: user_name || 'Anonymous',
+        },
+    };
+}

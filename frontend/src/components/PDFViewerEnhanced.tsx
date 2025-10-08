@@ -29,6 +29,7 @@ import { ShapeTool } from './annotation/ShapeTool';
 import { AnnotationToolbar } from './annotation/AnnotationToolbar';
 import { annotationManager } from '../services/annotation/AnnotationManager';
 import type { Annotation, ToolType } from '../types/annotation';
+import { transformBackendAnnotation } from '../utils/annotation';
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -109,7 +110,7 @@ export default function PDFViewerEnhanced({
     const [annotations, setAnnotations] = useState<Annotation[]>([]);
     const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
     const [currentTool, setCurrentTool] = useState<ToolType>('select');
-    
+
     // Shape tool state
     const [isDrawingShape, setIsDrawingShape] = useState(false);
     const [currentShapeTool, setCurrentShapeTool] = useState<'rectangle' | 'circle' | 'line' | 'arrow' | 'polygon' | null>(null);
@@ -141,10 +142,15 @@ export default function PDFViewerEnhanced({
             try {
                 const resp = await apiService.getAnnotationsForDocument(documentId);
                 if (!mounted) return;
-                // TODO: Transform backend response to Annotation[] format
-                // For now, just use the annotation manager's state
-                const currentAnnotations = annotationManager.getAnnotations();
-                setAnnotations(currentAnnotations);
+                
+                // 转换后端数据为前端格式
+                const backendAnnotations = resp.annotations || [];
+                const transformedAnnotations = backendAnnotations.map(transformBackendAnnotation);
+                
+                // 直接设置标注列表（annotation manager 已有这些标注）
+                setAnnotations(transformedAnnotations);
+                
+                console.log(`Loaded ${transformedAnnotations.length} annotations from backend`);
             } catch (e) {
                 console.warn('Failed to load annotations', e);
             }
@@ -930,7 +936,7 @@ export default function PDFViewerEnhanced({
             )}
         >
             {renderToolbar()}
-            
+
             {/* Annotation Toolbar */}
             <AnnotationToolbar
                 mode={annotationMode}
@@ -1016,22 +1022,22 @@ export default function PDFViewerEnhanced({
                                     const containerRect = containerRef.current?.getBoundingClientRect();
                                     const toolbarWidth = 280; // Estimated toolbar width
                                     const toolbarHeight = 40;
-                                    
+
                                     // Calculate position with boundary checks
                                     let left = selectionInfo.toolbarX ?? selectionInfo.x;
                                     let top = (selectionInfo.toolbarY ?? selectionInfo.y) - toolbarHeight - 4;
-                                    
+
                                     // Keep within horizontal bounds
                                     if (containerRect) {
                                         const maxLeft = containerRect.width - toolbarWidth - 20;
                                         left = Math.max(10, Math.min(left, maxLeft));
-                                        
+
                                         // If too close to top, show below selection instead
                                         if (top < 10) {
                                             top = (selectionInfo.toolbarY ?? selectionInfo.y) + (selectionInfo.height || 20) + 4;
                                         }
                                     }
-                                    
+
                                     return (
                                         <div className="selection-toolbar absolute" style={{
                                             left,
@@ -1040,18 +1046,18 @@ export default function PDFViewerEnhanced({
                                         }}>
                                             <div className="flex gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
                                                 {/* Highlight button with color indicator */}
-                                                <button 
-                                                    onClick={() => createAnnotation('highlight')} 
+                                                <button
+                                                    onClick={() => createAnnotation('highlight')}
                                                     className="flex items-center gap-1 text-xs px-3 py-1.5 hover:bg-yellow-50 rounded transition-colors"
                                                     title="高亮 (黄色)"
                                                 >
                                                     <span className="w-3 h-3 rounded-sm bg-yellow-400 opacity-60"></span>
                                                     <span>高亮</span>
                                                 </button>
-                                                
+
                                                 {/* Text markup dropdown */}
                                                 <div className="relative group">
-                                                    <button 
+                                                    <button
                                                         className="text-xs px-3 py-1.5 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
                                                         title="文本标记"
                                                     >
@@ -1061,36 +1067,36 @@ export default function PDFViewerEnhanced({
                                                         </svg>
                                                     </button>
                                                     <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px] z-70">
-                                                        <button 
-                                                            onClick={() => createAnnotation('underline')} 
+                                                        <button
+                                                            onClick={() => createAnnotation('underline')}
                                                             className="w-full text-left text-xs px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2"
                                                         >
                                                             <span className="w-4 h-0.5 bg-blue-500"></span>
                                                             <span>下划线</span>
                                                         </button>
-                                                        <button 
-                                                            onClick={() => createAnnotation('strikethrough')} 
+                                                        <button
+                                                            onClick={() => createAnnotation('strikethrough')}
                                                             className="w-full text-left text-xs px-3 py-1.5 hover:bg-red-50 flex items-center gap-2"
                                                         >
                                                             <span className="w-4 h-0.5 bg-red-500 line-through"></span>
                                                             <span>删除线</span>
                                                         </button>
-                                                        <button 
-                                                            onClick={() => createAnnotation('squiggly')} 
+                                                        <button
+                                                            onClick={() => createAnnotation('squiggly')}
                                                             className="w-full text-left text-xs px-3 py-1.5 hover:bg-green-50 flex items-center gap-2"
                                                         >
-                                                            <span className="w-4 h-0.5 bg-green-500" style={{textDecoration: 'wavy underline'}}></span>
+                                                            <span className="w-4 h-0.5 bg-green-500" style={{ textDecoration: 'wavy underline' }}></span>
                                                             <span>波浪线</span>
                                                         </button>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Divider */}
                                                 <div className="w-px bg-gray-300 mx-1"></div>
-                                                
+
                                                 {/* AI button */}
-                                                <button 
-                                                    onClick={dispatchAIQuestion} 
+                                                <button
+                                                    onClick={dispatchAIQuestion}
                                                     className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium"
                                                 >
                                                     AI 提问
@@ -1152,19 +1158,19 @@ export default function PDFViewerEnhanced({
                                                 const containerRect = containerRef.current?.getBoundingClientRect();
                                                 const toolbarWidth = 280;
                                                 const toolbarHeight = 40;
-                                                
+
                                                 let left = selectionInfo.toolbarX ?? selectionInfo.x;
                                                 let top = (selectionInfo.toolbarY ?? selectionInfo.y) - toolbarHeight - 4;
-                                                
+
                                                 if (containerRect) {
                                                     const maxLeft = containerRect.width - toolbarWidth - 20;
                                                     left = Math.max(10, Math.min(left, maxLeft));
-                                                    
+
                                                     if (top < 10) {
                                                         top = (selectionInfo.toolbarY ?? selectionInfo.y) + (selectionInfo.height || 20) + 4;
                                                     }
                                                 }
-                                                
+
                                                 return (
                                                     <div className="selection-toolbar absolute" style={{
                                                         left,
@@ -1172,17 +1178,17 @@ export default function PDFViewerEnhanced({
                                                         zIndex: 60
                                                     }}>
                                                         <div className="flex gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
-                                                            <button 
-                                                                onClick={() => createAnnotation('highlight')} 
+                                                            <button
+                                                                onClick={() => createAnnotation('highlight')}
                                                                 className="flex items-center gap-1 text-xs px-3 py-1.5 hover:bg-yellow-50 rounded transition-colors"
                                                                 title="高亮 (黄色)"
                                                             >
                                                                 <span className="w-3 h-3 rounded-sm bg-yellow-400 opacity-60"></span>
                                                                 <span>高亮</span>
                                                             </button>
-                                                            
+
                                                             <div className="relative group">
-                                                                <button 
+                                                                <button
                                                                     className="text-xs px-3 py-1.5 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
                                                                     title="文本标记"
                                                                 >
@@ -1192,34 +1198,34 @@ export default function PDFViewerEnhanced({
                                                                     </svg>
                                                                 </button>
                                                                 <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px] z-70">
-                                                                    <button 
-                                                                        onClick={() => createAnnotation('underline')} 
+                                                                    <button
+                                                                        onClick={() => createAnnotation('underline')}
                                                                         className="w-full text-left text-xs px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2"
                                                                     >
                                                                         <span className="w-4 h-0.5 bg-blue-500"></span>
                                                                         <span>下划线</span>
                                                                     </button>
-                                                                    <button 
-                                                                        onClick={() => createAnnotation('strikethrough')} 
+                                                                    <button
+                                                                        onClick={() => createAnnotation('strikethrough')}
                                                                         className="w-full text-left text-xs px-3 py-1.5 hover:bg-red-50 flex items-center gap-2"
                                                                     >
                                                                         <span className="w-4 h-0.5 bg-red-500 line-through"></span>
                                                                         <span>删除线</span>
                                                                     </button>
-                                                                    <button 
-                                                                        onClick={() => createAnnotation('squiggly')} 
+                                                                    <button
+                                                                        onClick={() => createAnnotation('squiggly')}
                                                                         className="w-full text-left text-xs px-3 py-1.5 hover:bg-green-50 flex items-center gap-2"
                                                                     >
-                                                                        <span className="w-4 h-0.5 bg-green-500" style={{textDecoration: 'wavy underline'}}></span>
+                                                                        <span className="w-4 h-0.5 bg-green-500" style={{ textDecoration: 'wavy underline' }}></span>
                                                                         <span>波浪线</span>
                                                                     </button>
                                                                 </div>
                                                             </div>
-                                                            
+
                                                             <div className="w-px bg-gray-300 mx-1"></div>
-                                                            
-                                                            <button 
-                                                                onClick={dispatchAIQuestion} 
+
+                                                            <button
+                                                                onClick={dispatchAIQuestion}
                                                                 className="text-xs px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium"
                                                             >
                                                                 AI 提问

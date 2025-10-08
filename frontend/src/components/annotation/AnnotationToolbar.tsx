@@ -36,8 +36,8 @@ export const AnnotationToolbar: React.FC<AnnotationToolbarProps> = ({
                     }}
                     className={clsx(
                         'p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm',
-                        mode === null 
-                            ? 'bg-blue-50 text-blue-600 font-medium' 
+                        mode === null
+                            ? 'bg-blue-50 text-blue-600 font-medium'
                             : 'hover:bg-gray-100 text-gray-700'
                     )}
                     title="选择工具 (V)"
@@ -146,8 +146,8 @@ export const AnnotationToolbar: React.FC<AnnotationToolbarProps> = ({
                         <div className="px-2 py-1 text-xs text-blue-600 bg-blue-50 rounded">
                             <div className="font-medium mb-1">绘制 {
                                 shapeTool === 'rectangle' ? '矩形' :
-                                shapeTool === 'circle' ? '圆形' :
-                                shapeTool === 'arrow' ? '箭头' : '图形'
+                                    shapeTool === 'circle' ? '圆形' :
+                                        shapeTool === 'arrow' ? '箭头' : '图形'
                             }</div>
                             <div className="text-blue-500">
                                 点击拖拽绘制

@@ -36,30 +36,31 @@ def test_shape_annotations():
         resp.raise_for_status()
         result = resp.json()
         docs = result.get('documents', [])
-        
+
         if not docs or len(docs) == 0:
             print("   ⚠️  没有文档，尝试上传测试 PDF...")
-            
+
             # 查找测试 PDF 文件
             test_pdfs = [
                 Path("论文.pdf"),
                 Path("Linux教程.pdf"),
             ]
-            
+
             pdf_file = None
             for pdf in test_pdfs:
                 if pdf.exists():
                     pdf_file = pdf
                     break
-            
+
             if not pdf_file:
                 print("   ❌ 未找到测试 PDF 文件")
                 return
-            
+
             print(f"   📤 上传文件: {pdf_file.name}...")
             with open(pdf_file, 'rb') as f:
                 files = {'file': (pdf_file.name, f, 'application/pdf')}
-                resp = requests.post(f"{BASE_URL}/documents/upload", files=files, timeout=60)
+                resp = requests.post(
+                    f"{BASE_URL}/documents/upload", files=files, timeout=60)
                 resp.raise_for_status()
                 doc = resp.json()
                 doc_id = doc['id']
@@ -104,8 +105,9 @@ def test_shape_annotations():
             },
             "tags": ["test", "rectangle"]
         }
-        
-        resp = requests.post(f"{BASE_URL}/annotations/", json=annotation_data, timeout=10)
+
+        resp = requests.post(f"{BASE_URL}/annotations/",
+                             json=annotation_data, timeout=10)
         resp.raise_for_status()
         annotation = resp.json()
         annotation_id_rect = annotation['id']
@@ -148,8 +150,9 @@ def test_shape_annotations():
             },
             "tags": ["test", "circle"]
         }
-        
-        resp = requests.post(f"{BASE_URL}/annotations/", json=annotation_data, timeout=10)
+
+        resp = requests.post(f"{BASE_URL}/annotations/",
+                             json=annotation_data, timeout=10)
         resp.raise_for_status()
         annotation = resp.json()
         annotation_id_circle = annotation['id']
@@ -183,8 +186,9 @@ def test_shape_annotations():
             },
             "tags": ["test", "arrow"]
         }
-        
-        resp = requests.post(f"{BASE_URL}/annotations/", json=annotation_data, timeout=10)
+
+        resp = requests.post(f"{BASE_URL}/annotations/",
+                             json=annotation_data, timeout=10)
         resp.raise_for_status()
         annotation = resp.json()
         annotation_id_arrow = annotation['id']
@@ -195,18 +199,21 @@ def test_shape_annotations():
     # 6. 查询文档的所有标注
     print("\n6. 查询文档的所有标注...")
     try:
-        resp = requests.get(f"{BASE_URL}/annotations/?document_id={doc_id}", timeout=10)
+        resp = requests.get(
+            f"{BASE_URL}/annotations/?document_id={doc_id}", timeout=10)
         resp.raise_for_status()
         annotations = resp.json()
         print(f"   ✅ 共有 {len(annotations)} 个标注")
-        
-        shape_annotations = [a for a in annotations if a['annotation_type'] == 'shape']
+
+        shape_annotations = [
+            a for a in annotations if a['annotation_type'] == 'shape']
         print(f"   📊 其中图形标注: {len(shape_annotations)} 个")
-        
+
         for ann in shape_annotations:
             data = json.loads(ann['data'])
             shape_type = data.get('shapeType', 'unknown')
-            print(f"      - {shape_type.capitalize()}: {ann['id'][:20]}... (页码 {ann['page_number']})")
+            print(
+                f"      - {shape_type.capitalize()}: {ann['id'][:20]}... (页码 {ann['page_number']})")
     except Exception as e:
         print(f"   ❌ 查询标注失败: {e}")
 
@@ -227,15 +234,18 @@ def test_shape_annotations():
     print("\n8. 测试删除功能...")
     try:
         # 删除测试创建的标注
-        resp = requests.delete(f"{BASE_URL}/annotations/{annotation_id_rect}", timeout=10)
+        resp = requests.delete(
+            f"{BASE_URL}/annotations/{annotation_id_rect}", timeout=10)
         resp.raise_for_status()
         print(f"   ✅ 删除矩形标注成功")
-        
-        resp = requests.delete(f"{BASE_URL}/annotations/{annotation_id_circle}", timeout=10)
+
+        resp = requests.delete(
+            f"{BASE_URL}/annotations/{annotation_id_circle}", timeout=10)
         resp.raise_for_status()
         print(f"   ✅ 删除圆形标注成功")
-        
-        resp = requests.delete(f"{BASE_URL}/annotations/{annotation_id_arrow}", timeout=10)
+
+        resp = requests.delete(
+            f"{BASE_URL}/annotations/{annotation_id_arrow}", timeout=10)
         resp.raise_for_status()
         print(f"   ✅ 删除箭头标注成功")
     except Exception as e:

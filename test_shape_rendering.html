@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试图形标注渲染</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #333;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 10px;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #2196F3;
+        }
+        .step h3 {
+            margin: 0 0 10px 0;
+            color: #2196F3;
+        }
+        .code {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .warning {
+            color: #FF9800;
+            font-weight: bold;
+        }
+        .error {
+            color: #F44336;
+            font-weight: bold;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        #result.success {
+            background: #E8F5E9;
+            border: 1px solid #4CAF50;
+        }
+        #result.error {
+            background: #FFEBEE;
+            border: 1px solid #F44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 图形标注渲染功能测试</h1>
+    
+    <div class="test-section">
+        <h2>📋 测试说明</h2>
+        <p>本页面用于测试 IntelliPDF 的图形标注渲染功能。</p>
+        <p><strong>前提条件</strong>：</p>
+        <ul>
+            <li>✅ 前端服务器运行在 <code>http://localhost:5174</code></li>
+            <li>✅ 后端服务器运行在 <code>http://localhost:8000</code></li>
+            <li>✅ 数据库已包含图形标注数据</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🔬 手动测试步骤</h2>
+        
+        <div class="step">
+            <h3>步骤 1: 打开应用</h3>
+            <p>1. 在浏览器中打开 <a href="http://localhost:5174" target="_blank">http://localhost:5174</a></p>
+            <p>2. 选择已上传的 PDF 文档（例如：Linux教程.pdf 或 论文.pdf）</p>
+        </div>
+
+        <div class="step">
+            <h3>步骤 2: 绘制图形标注</h3>
+            <p>1. 点击左侧工具栏的<strong>"矩形"</strong>按钮</p>
+            <p>2. 在 PDF 页面上拖拽鼠标绘制矩形</p>
+            <p>3. 释放鼠标，标注应自动保存</p>
+            <p>4. 重复测试<strong>"圆形"</strong>和<strong>"箭头"</strong>工具</p>
+        </div>
+
+        <div class="step">
+            <h3>步骤 3: 验证渲染</h3>
+            <p><strong class="success">✅ 成功标志</strong>：</p>
+            <ul>
+                <li>绘制的图形立即显示在 PDF 上</li>
+                <li>图形颜色为蓝色 (#2196F3)</li>
+                <li>图形半透明填充（opacity 0.2）</li>
+                <li>刷新页面后图形仍然显示</li>
+            </ul>
+            <p><strong class="error">❌ 失败标志</strong>：</p>
+            <ul>
+                <li>绘制后图形消失</li>
+                <li>刷新页面后图形不显示</li>
+                <li>控制台出现错误</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>步骤 4: 检查控制台</h3>
+            <p>按 <code>F12</code> 打开开发者工具，检查：</p>
+            <p>1. <strong>Console</strong> 标签：查看日志信息</p>
+            <div class="code">
+// 应该看到类似的日志：
+Loaded 3 annotations from backend
+Created annotation shape-xxx for document yyy
+            </div>
+            <p>2. <strong>Network</strong> 标签：验证 API 请求</p>
+            <ul>
+                <li>✅ <code>GET /api/v1/annotations/documents/{id}</code> - 返回 200</li>
+                <li>✅ <code>POST /api/v1/annotations/</code> - 返回 201</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 API 测试</h2>
+        <p>使用以下按钮测试后端 API：</p>
+        <button onclick="testGetDocuments()">获取文档列表</button>
+        <button onclick="testGetAnnotations()">获取标注列表</button>
+        <button onclick="testCreateShape()">创建测试图形</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 预期数据格式</h2>
+        <p><strong>后端返回的标注数据：</strong></p>
+        <div class="code">
+{
+  "annotations": [
+    {
+      "id": "3953e068-94cb-4ac0-8b80-235187dc30e7",
+      "document_id": "8523c731-ccea-4137-8472-600dcb5f4b64",
+      "user_id": "test_user",
+      "annotation_type": "shape",
+      "page_number": 1,
+      "data": {
+        "id": "shape-test-rectangle",
+        "type": "shape",
+        "shapeType": "rectangle",
+        "geometry": {
+          "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
+        },
+        "style": {
+          "color": "#2196F3",
+          "opacity": 0.8,
+          "strokeWidth": 2,
+          "fillColor": "#2196F3",
+          "fillOpacity": 0.2
+        }
+      },
+      "created_at": "2025-10-08T19:31:00",
+      "updated_at": "2025-10-08T19:31:00"
+    }
+  ],
+  "total": 1
+}
+        </div>
+
+        <p><strong>转换后的前端格式：</strong></p>
+        <div class="code">
+{
+  "id": "shape-test-rectangle",
+  "type": "shape",
+  "pageNumber": 1,
+  "geometry": {
+    "rect": { "x": 100, "y": 200, "width": 150, "height": 80 }
+  },
+  "style": {
+    "type": "rectangle",
+    "color": "#2196F3",
+    "opacity": 0.8,
+    "strokeWidth": 2,
+    "fillColor": "#2196F3",
+    "fillOpacity": 0.2,
+    "lineStyle": "solid"
+  },
+  "metadata": {
+    "createdAt": "2025-10-08T19:31:00",
+    "updatedAt": "2025-10-08T19:31:00",
+    "userId": "test_user",
+    "userName": "Anonymous"
+  }
+}
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 常见问题</h2>
+        
+        <h3>问题 1: 图形不显示</h3>
+        <p><strong>原因</strong>：数据格式不匹配或坐标转换错误</p>
+        <p><strong>解决</strong>：</p>
+        <ul>
+            <li>检查 <code>transformBackendAnnotation</code> 函数</li>
+            <li>验证 <code>geometry</code> 和 <code>style.type</code> 字段</li>
+            <li>查看控制台错误信息</li>
+        </ul>
+
+        <h3>问题 2: 刷新后图形消失</h3>
+        <p><strong>原因</strong>：未从后端加载标注</p>
+        <p><strong>解决</strong>：</p>
+        <ul>
+            <li>确认 <code>loadAnnotations</code> 函数被调用</li>
+            <li>检查 API 响应数据</li>
+            <li>验证 <code>setAnnotations</code> 被正确调用</li>
+        </ul>
+
+        <h3>问题 3: 图形位置不正确</h3>
+        <p><strong>原因</strong>：坐标系统不匹配</p>
+        <p><strong>解决</strong>：</p>
+        <ul>
+            <li>确认使用 PDF 坐标（origin: bottom-left）</li>
+            <li>检查 <code>pdfCoordinateService.rectangleToScreen</code></li>
+            <li>验证 <code>viewport</code> 缩放比例</li>
+        </ul>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        
+        async function testGetDocuments() {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = '';
+            result.innerHTML = '⏳ 正在获取文档列表...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/documents/`);
+                const data = await response.json();
+                
+                if (data.documents && data.documents.length > 0) {
+                    result.className = 'success';
+                    result.innerHTML = `
+                        <strong class="success">✅ 成功</strong><br>
+                        找到 ${data.documents.length} 个文档：<br>
+                        ${data.documents.map(doc => `- ${doc.filename} (ID: ${doc.id})`).join('<br>')}
+                    `;
+                } else {
+                    result.className = 'error';
+                    result.innerHTML = '<strong class="error">❌ 错误</strong><br>未找到文档';
+                }
+            } catch (error) {
+                result.className = 'error';
+                result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error.message}`;
+            }
+        }
+        
+        async function testGetAnnotations() {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = '';
+            result.innerHTML = '⏳ 正在获取标注列表...';
+            
+            try {
+                // 先获取文档列表
+                const docResp = await fetch(`${API_BASE}/documents/`);
+                const docData = await docResp.json();
+                
+                if (!docData.documents || docData.documents.length === 0) {
+                    result.className = 'error';
+                    result.innerHTML = '<strong class="error">❌ 错误</strong><br>未找到文档';
+                    return;
+                }
+                
+                const docId = docData.documents[0].id;
+                
+                // 获取标注
+                const annResp = await fetch(`${API_BASE}/annotations/documents/${docId}`);
+                const annData = await annResp.json();
+                
+                const shapeCount = annData.annotations ? 
+                    annData.annotations.filter(a => a.annotation_type === 'shape').length : 0;
+                
+                result.className = 'success';
+                result.innerHTML = `
+                    <strong class="success">✅ 成功</strong><br>
+                    文档 ID: ${docId}<br>
+                    总标注数: ${annData.total || 0}<br>
+                    图形标注数: ${shapeCount}<br>
+                    <details>
+                        <summary>查看数据</summary>
+                        <pre style="background:#263238;color:#aed581;padding:10px;overflow:auto;">${JSON.stringify(annData, null, 2)}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                result.className = 'error';
+                result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error.message}`;
+            }
+        }
+        
+        async function testCreateShape() {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = '';
+            result.innerHTML = '⏳ 正在创建测试图形...';
+            
+            try {
+                // 先获取文档 ID
+                const docResp = await fetch(`${API_BASE}/documents/`);
+                const docData = await docResp.json();
+                
+                if (!docData.documents || docData.documents.length === 0) {
+                    result.className = 'error';
+                    result.innerHTML = '<strong class="error">❌ 错误</strong><br>未找到文档';
+                    return;
+                }
+                
+                const docId = docData.documents[0].id;
+                
+                // 创建测试图形
+                const annotationData = {
+                    document_id: docId,
+                    user_id: 'test_user_' + Date.now(),
+                    annotation_type: 'shape',
+                    page_number: 1,
+                    data: {
+                        id: 'shape-test-' + Date.now(),
+                        type: 'shape',
+                        shapeType: 'rectangle',
+                        geometry: {
+                            rect: {
+                                x: Math.random() * 400 + 50,
+                                y: Math.random() * 400 + 50,
+                                width: 150,
+                                height: 80
+                            }
+                        },
+                        style: {
+                            color: '#2196F3',
+                            opacity: 0.8,
+                            strokeWidth: 2,
+                            fillColor: '#2196F3',
+                            fillOpacity: 0.2
+                        }
+                    },
+                    tags: ['test']
+                };
+                
+                const createResp = await fetch(`${API_BASE}/annotations/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(annotationData)
+                });
+                
+                if (createResp.ok) {
+                    const created = await createResp.json();
+                    result.className = 'success';
+                    result.innerHTML = `
+                        <strong class="success">✅ 成功</strong><br>
+                        创建的标注 ID: ${created.id}<br>
+                        类型: ${created.annotation_type}<br>
+                        页码: ${created.page_number}<br>
+                        <strong>请刷新前端页面查看效果！</strong>
+                    `;
+                } else {
+                    const error = await createResp.text();
+                    result.className = 'error';
+                    result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error}`;
+                }
+            } catch (error) {
+                result.className = 'error';
+                result.innerHTML = `<strong class="error">❌ 错误</strong><br>${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

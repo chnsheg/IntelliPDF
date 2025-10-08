@@ -125,7 +125,7 @@ export const ShapeTool: React.FC<ShapeToolProps> = ({
             pageNumber,
             geometry,
         });
-        
+
         // Reset state
         setIsDrawing(false);
         setStartPoint(null);
@@ -213,7 +213,7 @@ export const ShapeTool: React.FC<ShapeToolProps> = ({
                 case 'arrow':
                     ctx.moveTo(start.x, start.y);
                     ctx.lineTo(current.x, current.y);
-                    
+
                     // Draw arrow head for arrow tool
                     if (currentTool === 'arrow') {
                         const angle = Math.atan2(current.y - start.y, current.x - start.x);
@@ -244,7 +244,7 @@ export const ShapeTool: React.FC<ShapeToolProps> = ({
                 } else {
                     ctx.lineTo(screen.x, screen.y);
                 }
-                
+
                 // Draw point markers
                 ctx.fillStyle = '#2196F3';
                 ctx.fillRect(screen.x - 3, screen.y - 3, 6, 6);

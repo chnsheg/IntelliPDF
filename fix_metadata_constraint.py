@@ -35,32 +35,35 @@ try:
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
         )
     """)
-    
+
     # 2. 复制数据
     print("2. 复制现有数据...")
     cursor.execute("""
         INSERT INTO annotations_new 
         SELECT * FROM annotations
     """)
-    
+
     # 3. 删除旧表
     print("3. 删除旧表...")
     cursor.execute("DROP TABLE annotations")
-    
+
     # 4. 重命名新表
     print("4. 重命名新表...")
     cursor.execute("ALTER TABLE annotations_new RENAME TO annotations")
-    
+
     # 5. 创建索引
     print("5. 重建索引...")
-    cursor.execute("CREATE INDEX idx_annotations_document ON annotations(document_id)")
+    cursor.execute(
+        "CREATE INDEX idx_annotations_document ON annotations(document_id)")
     cursor.execute("CREATE INDEX idx_annotations_user ON annotations(user_id)")
-    cursor.execute("CREATE INDEX idx_annotations_type ON annotations(annotation_type)")
-    cursor.execute("CREATE INDEX idx_annotations_page ON annotations(page_number)")
-    
+    cursor.execute(
+        "CREATE INDEX idx_annotations_type ON annotations(annotation_type)")
+    cursor.execute(
+        "CREATE INDEX idx_annotations_page ON annotations(page_number)")
+
     conn.commit()
     print("\n✅ 修复完成！metadata 列现在可以为 NULL")
-    
+
 except Exception as e:
     print(f"\n❌ 错误: {e}")
     conn.rollback()
