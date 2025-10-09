@@ -9,11 +9,13 @@ import time
 BASE_URL = "http://localhost:8000"
 API_BASE = f"{BASE_URL}/api/v1"
 
+
 def print_section(title):
     """打印测试节标题"""
     print(f"\n{'='*60}")
     print(f"  {title}")
     print('='*60)
+
 
 def test_health():
     """测试健康检查"""
@@ -29,6 +31,7 @@ def test_health():
     except Exception as e:
         print(f"❌ 无法连接到后端: {e}")
         return False
+
 
 def get_document():
     """获取测试文档"""
@@ -51,10 +54,11 @@ def get_document():
         print(f"❌ 请求失败: {e}")
         return None
 
+
 def create_test_shape(doc_id):
     """创建测试形状标注"""
     print_section("3. 创建测试矩形标注")
-    
+
     annotation_data = {
         "document_id": doc_id,
         "page_number": 1,
@@ -76,14 +80,14 @@ def create_test_shape(doc_id):
         "content": "测试矩形（用于调整大小）",
         "tags": ["test", "resize"]
     }
-    
+
     try:
         response = requests.post(
             f"{API_BASE}/annotations",
             json=annotation_data,
             timeout=10
         )
-        
+
         if response.status_code == 200:
             annotation = response.json()
             print(f"✅ 创建矩形标注成功")
@@ -101,10 +105,11 @@ def create_test_shape(doc_id):
         print(f"❌ 请求异常: {e}")
         return None
 
+
 def simulate_resize(annotation_id, doc_id, old_geometry, new_geometry, operation):
     """模拟调整大小操作"""
     print(f"\n{operation}:")
-    
+
     update_data = {
         "data": {
             "id": annotation_id,
@@ -117,14 +122,14 @@ def simulate_resize(annotation_id, doc_id, old_geometry, new_geometry, operation
             }
         }
     }
-    
+
     try:
         response = requests.put(
             f"{API_BASE}/annotations/{annotation_id}",
             json=update_data,
             timeout=10
         )
-        
+
         if response.status_code == 200:
             print(f"  ✅ {operation}成功")
             print(f"     旧几何: x={old_geometry['x']}, y={old_geometry['y']}, "
@@ -140,14 +145,15 @@ def simulate_resize(annotation_id, doc_id, old_geometry, new_geometry, operation
         print(f"  ❌ 请求异常: {e}")
         return False
 
+
 def test_resize_operations(annotation):
     """测试各种调整大小操作"""
     print_section("4. 测试调整大小操作")
-    
+
     annotation_id = annotation['id']
     doc_id = annotation['document_id']
     original_geometry = annotation['data']['geometry']
-    
+
     operations = [
         {
             "name": "右下角调整（增大）",
@@ -215,26 +221,27 @@ def test_resize_operations(annotation):
             "new": original_geometry
         }
     ]
-    
+
     success_count = 0
     for op in operations:
         if simulate_resize(annotation_id, doc_id, op['old'], op['new'], op['name']):
             success_count += 1
             time.sleep(0.5)  # 短暂延迟
-    
+
     print(f"\n调整大小测试: {success_count}/{len(operations)} 成功")
     return success_count == len(operations)
+
 
 def verify_final_state(annotation_id):
     """验证最终状态"""
     print_section("5. 验证最终状态")
-    
+
     try:
         response = requests.get(
             f"{API_BASE}/annotations/{annotation_id}",
             timeout=10
         )
-        
+
         if response.status_code == 200:
             annotation = response.json()
             geometry = annotation['data']['geometry']
@@ -249,16 +256,17 @@ def verify_final_state(annotation_id):
         print(f"❌ 请求异常: {e}")
         return False
 
+
 def cleanup(annotation_id):
     """清理测试数据"""
     print_section("6. 清理测试数据")
-    
+
     try:
         response = requests.delete(
             f"{API_BASE}/annotations/{annotation_id}",
             timeout=10
         )
-        
+
         if response.status_code in [200, 204]:
             print(f"✅ 清理完成，已删除测试标注")
             return True
@@ -268,6 +276,7 @@ def cleanup(annotation_id):
     except Exception as e:
         print(f"❌ 请求异常: {e}")
         return False
+
 
 def main():
     """主测试流程"""
@@ -281,36 +290,36 @@ def main():
     print("  • 最小尺寸约束")
     print("  • 边界检查")
     print("  • ResizeAnnotationCommand 集成")
-    
+
     # 测试流程
     if not test_health():
         print("\n❌ 测试中止：后端服务未运行")
         return
-    
+
     doc_id = get_document()
     if not doc_id:
         print("\n❌ 测试中止：无法获取文档")
         return
-    
+
     annotation = create_test_shape(doc_id)
     if not annotation:
         print("\n❌ 测试中止：无法创建测试标注")
         return
-    
+
     annotation_id = annotation['id']
-    
+
     try:
         # 测试调整大小操作
         resize_success = test_resize_operations(annotation)
-        
+
         # 验证最终状态
         verify_success = verify_final_state(annotation_id)
-        
+
         # 总结
         print_section("测试总结")
         print(f"调整大小测试: {'✅ 通过' if resize_success else '❌ 失败'}")
         print(f"状态验证: {'✅ 通过' if verify_success else '❌ 失败'}")
-        
+
         if resize_success and verify_success:
             print("\n🎉 所有测试通过！")
             print("\n前端测试步骤:")
@@ -327,10 +336,11 @@ def main():
             print("   • 调整后的标注保持在页面边界内")
         else:
             print("\n❌ 部分测试失败，请检查日志")
-    
+
     finally:
         # 清理测试数据
         cleanup(annotation_id)
+
 
 if __name__ == "__main__":
     main()

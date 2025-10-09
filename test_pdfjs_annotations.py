@@ -26,11 +26,11 @@ def get_auth_headers():
 def test_batch_create_annotations():
     """测试批量创建标注"""
     print("\n=== 测试批量创建标注 ===")
-    
+
     # 准备测试数据
     test_doc_id = str(uuid.uuid4())
     test_user_id = str(uuid.uuid4())
-    
+
     annotations_data = [
         {
             "document_id": test_doc_id,
@@ -89,7 +89,7 @@ def test_batch_create_annotations():
             }
         }
     ]
-    
+
     try:
         # 发送批量创建请求
         response = requests.post(
@@ -98,10 +98,11 @@ def test_batch_create_annotations():
             headers=get_auth_headers(),
             timeout=10
         )
-        
+
         print(f"状态码: {response.status_code}")
-        print(f"响应内容: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
-        
+        print(
+            f"响应内容: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
+
         if response.status_code in [200, 201]:
             result = response.json()
             print(f"✅ 成功创建 {result.get('created', 0)} 条标注")
@@ -109,7 +110,7 @@ def test_batch_create_annotations():
         else:
             print(f"❌ 创建失败: {response.text}")
             return None
-            
+
     except Exception as e:
         print(f"❌ 请求异常: {e}")
         return None
@@ -118,16 +119,16 @@ def test_batch_create_annotations():
 def test_get_annotations_by_document(document_id: str):
     """测试获取文档的所有标注"""
     print(f"\n=== 测试获取文档标注 (document_id={document_id}) ===")
-    
+
     try:
         response = requests.get(
             f"{BASE_URL}/annotations/documents/{document_id}",
             headers=get_auth_headers(),
             timeout=10
         )
-        
+
         print(f"状态码: {response.status_code}")
-        
+
         if response.status_code == 200:
             response_data = response.json()
             # Response might be paginated or a list
@@ -135,16 +136,17 @@ def test_get_annotations_by_document(document_id: str):
                 annotations = response_data.get('annotations', [])
             else:
                 annotations = response_data
-            
+
             print(f"✅ 找到 {len(annotations)} 条标注")
             for i, ann in enumerate(annotations[:5], 1):  # Show first 5
                 if isinstance(ann, dict):
-                    print(f"  [{i}] 类型={ann.get('annotation_type')}, 页码={ann.get('page_number')}")
+                    print(
+                        f"  [{i}] 类型={ann.get('annotation_type')}, 页码={ann.get('page_number')}")
             return len(annotations)
         else:
             print(f"❌ 获取失败: {response.text}")
             return 0
-            
+
     except Exception as e:
         print(f"❌ 请求异常: {e}")
         return 0
@@ -153,23 +155,23 @@ def test_get_annotations_by_document(document_id: str):
 def test_delete_annotations_by_document(document_id: str):
     """测试删除文档的所有标注"""
     print(f"\n=== 测试删除文档标注 (document_id={document_id}) ===")
-    
+
     try:
         response = requests.delete(
             f"{BASE_URL}/annotations/documents/{document_id}",
             headers=get_auth_headers(),
             timeout=10
         )
-        
+
         print(f"状态码: {response.status_code}")
-        
+
         if response.status_code == 204:
             print(f"✅ 成功删除文档的所有标注")
             return True
         else:
             print(f"❌ 删除失败: {response.text}")
             return False
-            
+
     except Exception as e:
         print(f"❌ 请求异常: {e}")
         return False
@@ -178,7 +180,7 @@ def test_delete_annotations_by_document(document_id: str):
 def test_endpoint_validation():
     """测试端点验证（无效数据）"""
     print("\n=== 测试端点验证 ===")
-    
+
     # 测试1: 空数组
     try:
         response = requests.post(
@@ -192,7 +194,7 @@ def test_endpoint_validation():
             print(f"  结果: {response.json()}")
     except Exception as e:
         print(f"  异常: {e}")
-    
+
     # 测试2: 缺少必需字段
     try:
         response = requests.post(
@@ -206,7 +208,7 @@ def test_endpoint_validation():
             print(f"  错误: {response.text}")
     except Exception as e:
         print(f"  异常: {e}")
-    
+
     # 测试3: 无效的 document_id
     try:
         response = requests.delete(
@@ -223,31 +225,31 @@ def main():
     """主测试流程"""
     print("PDF.js 原生标注系统 - 后端 API 测试")
     print("=" * 60)
-    
+
     # 测试1: 批量创建
     test_doc_id = test_batch_create_annotations()
-    
+
     if test_doc_id:
         # 测试2: 获取标注
         count = test_get_annotations_by_document(test_doc_id)
-        
+
         # 测试3: 删除标注
         if count > 0:
             test_delete_annotations_by_document(test_doc_id)
-            
+
             # 验证删除
             count_after = test_get_annotations_by_document(test_doc_id)
             if count_after == 0:
                 print("\n✅ 删除验证成功：标注已全部删除")
             else:
                 print(f"\n⚠️  删除验证失败：仍有 {count_after} 条标注")
-    
+
     # 测试4: 端点验证
     test_endpoint_validation()
-    
+
     print("\n" + "=" * 60)
     print("测试完成！")
-    
+
     print("\n提示:")
     print("  - 如果遇到 401 错误，请先运行 test_api_complete.py 获取 token")
     print("  - 如果遇到 422 错误，检查请求数据格式是否正确")

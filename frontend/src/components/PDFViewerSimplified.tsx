@@ -37,10 +37,10 @@ export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
     const [pageNumber, setPageNumber] = useState<number>(1);
     const [scale, setScale] = useState<number>(1.0);
     const [pdfDocument, setPdfDocument] = useState<any>(null);
-    
+
     // ⭐ 标注编辑模式
     const [editorMode, setEditorMode] = useState<number>(AnnotationEditorMode.NONE);
-    
+
     // 使用自定义 Hook 管理标注
     const {
         loadAnnotations,
@@ -55,7 +55,7 @@ export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
         console.log('PDF loaded:', { numPages });
         setNumPages(numPages);
         setPdfDocument(pdf);
-        
+
         // 加载已保存的标注
         loadAnnotations(pdf);
     }, [loadAnnotations]);
@@ -68,13 +68,13 @@ export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
 
         const handleAnnotationChange = (event: any) => {
             console.log('Annotation changed:', event);
-            
+
             // 获取标注数据
             const storage = pdfDocument.annotationStorage;
             const serializableAnnotations = storage.serializable;
-            
+
             console.log('Serializable annotations:', serializableAnnotations);
-            
+
             // 自动保存到后端
             saveAnnotations(serializableAnnotations);
         };
@@ -83,7 +83,7 @@ export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
         const eventBus = pdfDocument._eventBus || pdfDocument.eventBus;
         if (eventBus) {
             eventBus.on('annotationeditorstateschanged', handleAnnotationChange);
-            
+
             return () => {
                 eventBus.off('annotationeditorstateschanged', handleAnnotationChange);
             };
@@ -140,11 +140,11 @@ export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
                 >
                     上一页
                 </button>
-                
+
                 <span className="text-sm">
                     第 {pageNumber} / {numPages} 页
                 </span>
-                
+
                 <button
                     onClick={goToNextPage}
                     disabled={pageNumber >= numPages}

@@ -81,16 +81,16 @@ react-pdf 默认会渲染 `annotationLayer`，但 **不会自动启用编辑功�
 
 ### 当前系统 → PDF.js 映射
 
-| 当前功能 | 当前实现 | PDF.js 对应 | 迁移难度 |
-|---------|---------|-------------|---------|
-| 高亮文本 | Canvas 绘制 | Highlight Annotation | ⭐⭐ 中等 |
-| 下划线 | Canvas 绘制 | Underline Annotation | ⭐⭐ 中等 |
-| 删除线 | Canvas 绘制 | StrikeOut Annotation | ⭐⭐ 中等 |
-| 矩形 | Canvas 绘制 | Ink (FreeHand) | ⭐⭐⭐ 较难 |
-| 圆形 | Canvas 绘制 | Ink (FreeHand) | ⭐⭐⭐ 较难 |
-| 箭头 | Canvas 绘制 | Ink (FreeHand) | ⭐⭐⭐ 较难 |
-| 便笺 | 自定义组件 | FreeText Annotation | ⭐⭐ 中等 |
-| 画笔 | Canvas 路径 | Ink Annotation | ⭐ 简单 |
+| 当前功能 | 当前实现    | PDF.js 对应          | 迁移难度 |
+| -------- | ----------- | -------------------- | -------- |
+| 高亮文本 | Canvas 绘制 | Highlight Annotation | ⭐⭐ 中等  |
+| 下划线   | Canvas 绘制 | Underline Annotation | ⭐⭐ 中等  |
+| 删除线   | Canvas 绘制 | StrikeOut Annotation | ⭐⭐ 中等  |
+| 矩形     | Canvas 绘制 | Ink (FreeHand)       | ⭐⭐⭐ 较难 |
+| 圆形     | Canvas 绘制 | Ink (FreeHand)       | ⭐⭐⭐ 较难 |
+| 箭头     | Canvas 绘制 | Ink (FreeHand)       | ⭐⭐⭐ 较难 |
+| 便笺     | 自定义组件  | FreeText Annotation  | ⭐⭐ 中等  |
+| 画笔     | Canvas 路径 | Ink Annotation       | ⭐ 简单   |
 
 ### 问题分析
 

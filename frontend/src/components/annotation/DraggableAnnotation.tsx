@@ -153,9 +153,9 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
             newHeight = Math.max(minSize, newHeight);
 
             // 计算偏移量用于实时预览
-            setDragOffset({ 
-                x: (newX - resizeStart.x) * scale, 
-                y: -(newY - resizeStart.y) * scale 
+            setDragOffset({
+                x: (newX - resizeStart.x) * scale,
+                y: -(newY - resizeStart.y) * scale
             });
         }
     }, [isDragging, isResizing, dragStartPos, resizeStart, resizeHandle, scale]);
@@ -271,7 +271,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
 
         const { geometry } = selectedAnnotation;
         const viewport = pdfPage.getViewport({ scale });
-        
+
         let left, top, width, height;
 
         if (isResizing && resizeStart && resizeHandle) {
@@ -377,7 +377,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
     // ⚠️ 关键修复：根据状态动态渲染覆盖层
     // 拖拽/调整大小时：全屏覆盖层捕获所有鼠标事件
     // 平时：只渲染标注区域的可点击热区，不阻止文本选择
-    
+
     if (isDragging || isResizing) {
         // 拖拽/调整大小模式：全屏捕获
         return (
@@ -399,13 +399,13 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
             {/* 为每个标注渲染独立的点击热区 */}
             {annotations.map(annotation => {
                 if (!annotation.geometry) return null;
-                
+
                 const viewport = pdfPage.getViewport({ scale });
                 const screenX = annotation.geometry.x * scale;
                 const screenY = (viewport.height / scale - annotation.geometry.y - annotation.geometry.height) * scale;
                 const screenWidth = annotation.geometry.width * scale;
                 const screenHeight = annotation.geometry.height * scale;
-                
+
                 return (
                     <div
                         key={annotation.id}
@@ -420,7 +420,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
                             const rect = e.currentTarget.getBoundingClientRect();
                             const x = e.clientX - rect.left + screenX;
                             const y = e.clientY - rect.top + screenY;
-                            
+
                             // 检查是否点击了调整句柄
                             if (annotation.id === selectedAnnotationId && annotation.geometry) {
                                 const handle = getResizeHandle(x, y, annotation.geometry);
@@ -433,7 +433,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
                                     return;
                                 }
                             }
-                            
+
                             // 选中标注
                             onSelect(annotation.id);
                             setIsDragging(true);
@@ -444,7 +444,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
                     />
                 );
             })}
-            
+
             {/* 渲染选中标注的边框和句柄 */}
             {renderSelectionBox()}
         </div>

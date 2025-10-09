@@ -32,7 +32,7 @@ export const usePDFAnnotations = (documentId: string) => {
 
             // 恢复标注到 PDF.js AnnotationStorage
             const storage = pdfDocument.annotationStorage;
-            
+
             // 清空现有标注
             storage.resetModified();
 
@@ -41,7 +41,7 @@ export const usePDFAnnotations = (documentId: string) => {
                 if (ann.data && typeof ann.data === 'object') {
                     // 如果是我们自定义格式，提取 pdfjs_data
                     const pdfjs_data = ann.data.pdfjs_data || ann.data;
-                    
+
                     // 设置到 storage
                     if (pdfjs_data.id) {
                         storage.setValue(pdfjs_data.id, pdfjs_data);
@@ -104,7 +104,7 @@ export const usePDFAnnotations = (documentId: string) => {
 
             // TODO: 调用删除 API
             await apiService.deleteAnnotationsByDocument(documentId);
-            
+
             console.log('Annotations cleared');
         } catch (err) {
             console.error('Failed to clear annotations:', err);

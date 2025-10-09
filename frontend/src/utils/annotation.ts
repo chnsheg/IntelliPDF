@@ -409,9 +409,9 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
     if (annotation_type === 'shape') {
         // 图形标注
         const geometry = parsedData.geometry;
-        
+
         console.log('[transformBackendAnnotation] Shape geometry:', geometry, 'shapeType:', parsedData.shapeType);
-        
+
         // 转换 geometry 格式：确保符合 ShapeAnnotation 接口
         // 如果 geometry 直接有 x, y, width, height，需要包装成 rect
         let transformedGeometry;
@@ -438,7 +438,7 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
             console.warn('Unknown geometry format:', geometry);
             transformedGeometry = { rect: geometry };
         }
-        
+
         const result = {
             id: parsedData.id || id,
             type: 'shape',
@@ -460,7 +460,7 @@ export function transformBackendAnnotation(backendAnnotation: any): any {
                 userName: user_name || 'Anonymous',
             },
         };
-        
+
         console.log('[transformBackendAnnotation] Shape result:', result);
         return result;
     } else if (annotation_type === 'text-markup') {

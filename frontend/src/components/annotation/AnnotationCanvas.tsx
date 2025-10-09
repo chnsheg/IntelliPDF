@@ -202,13 +202,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         });
 
         const { style } = annotation;
-        
+
         // 🔥 关键检查：如果 style.type 不存在，无法渲染
         if (!style.type) {
             console.error('[renderShape] ❌ style.type is undefined! Cannot render shape. Style:', style);
             return;
         }
-        
+
         const color = hexToRgba(style.color, style.opacity);
 
         ctx.strokeStyle = color;
@@ -235,7 +235,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 annotation.geometry.rect,
                 viewport
             );
-            
+
             console.log('[renderShape] Drawing rect:', rect);
 
             // 支持 'square' 和 'rectangle' (前端发送的是 'rectangle')

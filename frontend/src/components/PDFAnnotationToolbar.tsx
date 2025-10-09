@@ -101,7 +101,7 @@ export const PDFAnnotationToolbar: React.FC<PDFAnnotationToolbarProps> = ({
             <div className="px-2 py-1 text-xs text-gray-500 font-medium">
                 缩放
             </div>
-            
+
             <button
                 onClick={onZoomIn}
                 className="p-2 rounded-lg hover:bg-gray-100 text-gray-700 flex items-center justify-center"

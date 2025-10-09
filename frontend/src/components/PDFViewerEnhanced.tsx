@@ -1337,16 +1337,16 @@ export default function PDFViewerEnhanced({
                                             });
                                         }
                                         return shouldRender ? (
-                                        <DraggableAnnotation
-                                            pageNumber={pageNumber}
-                                            annotations={annotations.filter(a => (a as any).pageNumber === pageNumber) as any[]}
-                                            scale={scale}
-                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
-                                            selectedAnnotationId={selectedAnnotationId}
-                                            onSelect={handleAnnotationSelect}
-                                            onMoveComplete={handleAnnotationMove}
-                                            onResizeComplete={handleAnnotationResize}
-                                        />
+                                            <DraggableAnnotation
+                                                pageNumber={pageNumber}
+                                                annotations={annotations.filter(a => (a as any).pageNumber === pageNumber) as any[]}
+                                                scale={scale}
+                                                pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                                selectedAnnotationId={selectedAnnotationId}
+                                                onSelect={handleAnnotationSelect}
+                                                onMoveComplete={handleAnnotationMove}
+                                                onResizeComplete={handleAnnotationResize}
+                                            />
                                         ) : null;
                                     })()}
                                     {/* Shape drawing tool */}
@@ -1361,18 +1361,18 @@ export default function PDFViewerEnhanced({
                                             });
                                         }
                                         return shouldRender ? (
-                                        <ShapeTool
-                                            pageNumber={pageNumber}
-                                            pdfPage={pdfPagesCache.current.get(pageNumber)!}
-                                            scale={scale}
-                                            currentTool={currentShapeTool}
-                                            onShapeComplete={handleShapeComplete}
-                                            onCancel={() => {
-                                                setIsDrawingShape(false);
-                                                setCurrentShapeTool(null);
-                                                setAnnotationMode(null);
-                                            }}
-                                        />
+                                            <ShapeTool
+                                                pageNumber={pageNumber}
+                                                pdfPage={pdfPagesCache.current.get(pageNumber)!}
+                                                scale={scale}
+                                                currentTool={currentShapeTool}
+                                                onShapeComplete={handleShapeComplete}
+                                                onCancel={() => {
+                                                    setIsDrawingShape(false);
+                                                    setCurrentShapeTool(null);
+                                                    setAnnotationMode(null);
+                                                }}
+                                            />
                                         ) : null;
                                     })()}
                                     {/* Note tool */}

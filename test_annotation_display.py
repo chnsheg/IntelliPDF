@@ -8,11 +8,12 @@ import time
 BASE_URL = "http://localhost:8000"
 API_BASE = f"{BASE_URL}/api/v1"
 
+
 def test_create_and_list():
     print("=" * 60)
     print("测试标注创建和显示")
     print("=" * 60)
-    
+
     # 1. 获取文档
     print("\n1. 获取文档列表...")
     resp = requests.get(f"{API_BASE}/documents")
@@ -21,10 +22,11 @@ def test_create_and_list():
     if not docs:
         print("❌ 没有文档")
         return
-    
+
     doc_id = docs[0]['id']
-    print(f"✅ 使用文档: {docs[0].get('filename', docs[0].get('title', 'Unknown'))}")
-    
+    print(
+        f"✅ 使用文档: {docs[0].get('filename', docs[0].get('title', 'Unknown'))}")
+
     # 2. 创建一个矩形
     print("\n2. 创建矩形标注...")
     annotation_data = {
@@ -52,8 +54,9 @@ def test_create_and_list():
         "content": "测试矩形",
         "tags": []
     }
-    
-    create_resp = requests.post(f"{API_BASE}/annotations", json=annotation_data)
+
+    create_resp = requests.post(
+        f"{API_BASE}/annotations", json=annotation_data)
     if create_resp.status_code in [200, 201]:
         created = create_resp.json()
         print(f"✅ 创建成功: {created['id']}")
@@ -62,16 +65,16 @@ def test_create_and_list():
         print(f"❌ 创建失败: {create_resp.status_code}")
         print(f"   响应: {create_resp.text}")
         return
-    
+
     # 3. 立即获取标注列表
     print("\n3. 获取标注列表（验证立即显示）...")
     time.sleep(0.5)  # 短暂延迟
-    
+
     list_resp = requests.get(f"{API_BASE}/documents/{doc_id}/annotations")
     if list_resp.status_code == 200:
         annotations = list_resp.json()
         print(f"✅ 获取到 {len(annotations)} 个标注")
-        
+
         # 查找刚创建的标注
         found = any(a['id'] == annotation_id for a in annotations)
         if found:
@@ -80,13 +83,13 @@ def test_create_and_list():
             print("❌ 新创建的标注不在列表中")
     else:
         print(f"❌ 获取列表失败: {list_resp.status_code}")
-    
+
     # 4. 清理
     print("\n4. 清理测试数据...")
     delete_resp = requests.delete(f"{API_BASE}/annotations/{annotation_id}")
     if delete_resp.status_code in [200, 204]:
         print("✅ 清理完成")
-    
+
     print("\n" + "=" * 60)
     print("前端测试步骤：")
     print("1. 打开浏览器 http://localhost:5173")
@@ -101,6 +104,7 @@ def test_create_and_list():
     print("10. 编辑便笺内容并保存")
     print("11. 检查便笺是否显示")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     test_create_and_list()

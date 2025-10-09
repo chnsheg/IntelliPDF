@@ -201,7 +201,7 @@ async def batch_create_annotations(
 ):
     """
     批量创建标注（用于 PDF.js）
-    
+
     请求格式:
     {
         "annotations": [
@@ -232,15 +232,16 @@ async def batch_create_annotations(
         for i, ann_data in enumerate(annotations_data):
             try:
                 # 验证必填字段
-                required_fields = ['document_id', 'user_id', 'page_number', 'data']
+                required_fields = ['document_id',
+                                   'user_id', 'page_number', 'data']
                 missing = [f for f in required_fields if f not in ann_data]
-                
+
                 if missing:
                     error_msg = f"Item {i}: Missing {', '.join(missing)}"
                     errors.append(error_msg)
                     logger.warning(error_msg)
                     continue
-                
+
                 model = AnnotationModel(
                     document_id=ann_data['document_id'],
                     user_id=ann_data['user_id'],
@@ -254,14 +255,15 @@ async def batch_create_annotations(
                 )
                 await repo.create(model)
                 created_count += 1
-                
+
             except Exception as e:
                 error_msg = f"Item {i}: {str(e)}"
                 errors.append(error_msg)
                 logger.error(error_msg)
 
-        logger.info(f"Batch created {created_count}/{len(annotations_data)} annotations")
-        
+        logger.info(
+            f"Batch created {created_count}/{len(annotations_data)} annotations")
+
         result = {
             "status": "success" if created_count > 0 else "failed",
             "created": created_count,
@@ -269,7 +271,7 @@ async def batch_create_annotations(
         }
         if errors:
             result["errors"] = errors
-            
+
         return result
 
     except HTTPException:
@@ -304,7 +306,8 @@ async def delete_annotations_by_document(
             await repo.delete(ann.id)
             deleted_count += 1
 
-        logger.info(f"Deleted {deleted_count} annotations for document {document_id}")
+        logger.info(
+            f"Deleted {deleted_count} annotations for document {document_id}")
         return None
 
     except Exception as e:
