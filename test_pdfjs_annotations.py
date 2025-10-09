@@ -102,7 +102,7 @@ def test_batch_create_annotations():
         print(f"状态码: {response.status_code}")
         print(f"响应内容: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
         
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             result = response.json()
             print(f"✅ 成功创建 {result.get('created', 0)} 条标注")
             return test_doc_id

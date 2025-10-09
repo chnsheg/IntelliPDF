@@ -226,25 +226,51 @@ async def batch_create_annotations(
             )
 
         created_count = 0
+        errors = []
         from ....models.db import AnnotationModel
 
-        for ann_data in annotations_data:
-            model = AnnotationModel(
-                document_id=ann_data['document_id'],
-                user_id=ann_data['user_id'],
-                annotation_type=ann_data.get('annotation_type', 'pdfjs'),
-                page_number=ann_data['page_number'],
-                data=ann_data['data'],
-                content=ann_data.get('content'),
-                color=ann_data.get('color'),
-                tags=ann_data.get('tags', []),
-                user_name=ann_data.get('user_name'),
-            )
-            await repo.create(model)
-            created_count += 1
+        for i, ann_data in enumerate(annotations_data):
+            try:
+                # 验证必填字段
+                required_fields = ['document_id', 'user_id', 'page_number', 'data']
+                missing = [f for f in required_fields if f not in ann_data]
+                
+                if missing:
+                    error_msg = f"Item {i}: Missing {', '.join(missing)}"
+                    errors.append(error_msg)
+                    logger.warning(error_msg)
+                    continue
+                
+                model = AnnotationModel(
+                    document_id=ann_data['document_id'],
+                    user_id=ann_data['user_id'],
+                    annotation_type=ann_data.get('annotation_type', 'pdfjs'),
+                    page_number=ann_data['page_number'],
+                    data=ann_data['data'],
+                    content=ann_data.get('content'),
+                    color=ann_data.get('color'),
+                    tags=ann_data.get('tags', []),
+                    user_name=ann_data.get('user_name'),
+                )
+                await repo.create(model)
+                created_count += 1
+                
+            except Exception as e:
+                error_msg = f"Item {i}: {str(e)}"
+                errors.append(error_msg)
+                logger.error(error_msg)
 
-        logger.info(f"Batch created {created_count} annotations")
-        return {"status": "success", "created": created_count}
+        logger.info(f"Batch created {created_count}/{len(annotations_data)} annotations")
+        
+        result = {
+            "status": "success" if created_count > 0 else "failed",
+            "created": created_count,
+            "total": len(annotations_data)
+        }
+        if errors:
+            result["errors"] = errors
+            
+        return result
 
     except HTTPException:
         raise
