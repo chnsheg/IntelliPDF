@@ -19,6 +19,7 @@ const DocumentsPage = lazy(() => import('./pages/DocumentsPage'));
 const KnowledgeGraphPage = lazy(() => import('./pages/KnowledgeGraphPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const PDFAnnotationTestPage = lazy(() => import('./pages/PDFAnnotationTestPage'));
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -66,6 +67,11 @@ function App() {
                 <Route path="document/:id" element={
                   <ProtectedRoute>
                     <DocumentViewerPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="annotation-test" element={
+                  <ProtectedRoute>
+                    <PDFAnnotationTestPage />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<Navigate to="/" replace />} />
