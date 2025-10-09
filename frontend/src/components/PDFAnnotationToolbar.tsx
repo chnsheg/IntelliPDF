@@ -14,6 +14,10 @@ interface PDFAnnotationToolbarProps {
     onZoomIn: () => void;
     onZoomOut: () => void;
     scale: number;
+    color?: string;
+    onColorChange?: (color: string) => void;
+    thickness?: number;
+    onThicknessChange?: (thickness: number) => void;
 }
 
 // PDF.js 标注模式常量
@@ -30,7 +34,13 @@ export const PDFAnnotationToolbar: React.FC<PDFAnnotationToolbarProps> = ({
     onZoomIn,
     onZoomOut,
     scale,
+    color = '#ff0000',
+    onColorChange,
+    thickness = 2,
+    onThicknessChange,
 }) => {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#000000'];
+    const thicknesses = [1, 2, 3, 4, 5];
     return (
         <div className="fixed left-4 top-24 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-2 flex flex-col gap-1">
             {/* 选择工具 */}
@@ -94,6 +104,57 @@ export const PDFAnnotationToolbar: React.FC<PDFAnnotationToolbarProps> = ({
                 <FiImage size={18} />
                 <span>图章</span>
             </button>
+
+            <div className="h-px bg-gray-200 my-1"></div>
+
+            {/* 颜色选择 */}
+            {(currentMode === MODES.INK || currentMode === MODES.FREETEXT) && onColorChange && (
+                <>
+                    <div className="px-2 py-1 text-xs text-gray-500 font-medium">
+                        颜色
+                    </div>
+                    <div className="px-2 py-1 grid grid-cols-3 gap-1">
+                        {colors.map((c) => (
+                            <button
+                                key={c}
+                                onClick={() => onColorChange(c)}
+                                className={clsx(
+                                    'w-6 h-6 rounded border-2 transition-all',
+                                    color === c ? 'border-gray-900 scale-110' : 'border-gray-300'
+                                )}
+                                style={{ backgroundColor: c }}
+                                title={c}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* 粗细选择 */}
+            {currentMode === MODES.INK && onThicknessChange && (
+                <>
+                    <div className="px-2 py-1 text-xs text-gray-500 font-medium">
+                        粗细
+                    </div>
+                    <div className="px-2 py-1 flex flex-col gap-1">
+                        {thicknesses.map((t) => (
+                            <button
+                                key={t}
+                                onClick={() => onThicknessChange(t)}
+                                className={clsx(
+                                    'h-6 rounded transition-all',
+                                    thickness === t ? 'bg-blue-100 border-2 border-blue-500' : 'bg-gray-100 border-2 border-gray-300'
+                                )}
+                            >
+                                <div
+                                    className="h-full flex items-center justify-center"
+                                    style={{ height: `${t}px`, backgroundColor: thickness === t ? '#3b82f6' : '#6b7280' }}
+                                />
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
 
             <div className="h-px bg-gray-200 my-1"></div>
 

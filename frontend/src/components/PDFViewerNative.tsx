@@ -44,6 +44,8 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
     const [numPages, setNumPages] = useState<number>(0);
     const [scale, setScale] = useState<number>(1.5);
     const [editorMode, setEditorMode] = useState<number>(AnnotationEditorType.NONE);
+    const [annotationColor, setAnnotationColor] = useState<string>('#ff0000');
+    const [annotationThickness, setAnnotationThickness] = useState<number>(2);
 
     const { loadAnnotations, saveAnnotations, isLoading } = usePDFAnnotations(documentId);
 
@@ -357,6 +359,14 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
         svg.style.pointerEvents = 'auto';
         container.appendChild(svg);
 
+        // 将 hex 颜色转换为 RGB 数组
+        const hexToRgb = (hex: string): [number, number, number] => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result
+                ? [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255]
+                : [1, 0, 0];
+        };
+
         const handleMouseDown = (e: MouseEvent) => {
             isDrawing = true;
             const rect = container.getBoundingClientRect();
@@ -372,8 +382,8 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const d = `M ${currentPath.map(p => `${p.x},${p.y}`).join(' L ')}`;
             path.setAttribute('d', d);
-            path.setAttribute('stroke', '#ff0000');
-            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke', annotationColor);
+            path.setAttribute('stroke-width', String(annotationThickness));
             path.setAttribute('fill', 'none');
             svg.innerHTML = '';
             svg.appendChild(path);
@@ -388,8 +398,8 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
                     annotationType: AnnotationEditorType.INK,
                     pageIndex: pageNumber - 1,
                     paths: [currentPath],
-                    color: [1, 0, 0], // RGB
-                    thickness: 2,
+                    color: hexToRgb(annotationColor),
+                    thickness: annotationThickness,
                 };
 
                 console.log('[InkEditor] Created annotation:', annotationData);
@@ -409,7 +419,7 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
         container.addEventListener('mousedown', handleMouseDown);
         container.addEventListener('mousemove', handleMouseMove);
         container.addEventListener('mouseup', handleMouseUp);
-    }, [pdfDocument, pageNumber, saveAnnotations]);
+    }, [pdfDocument, pageNumber, saveAnnotations, annotationColor, annotationThickness]);
 
     /**
      * 启用文本编辑器
@@ -440,13 +450,21 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
             const handleBlur = async () => {
                 const text = input.value.trim();
                 if (text) {
+                    // 将 hex 颜色转换为 RGB 数组
+                    const hexToRgb = (hex: string): [number, number, number] => {
+                        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                        return result
+                            ? [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255]
+                            : [0, 0, 1];
+                    };
+
                     // 保存标注
                     const annotationData = {
                         annotationType: AnnotationEditorType.FREETEXT,
                         pageIndex: pageNumber - 1,
                         rect: [x, y, x + 200, y + 30],
                         contents: text,
-                        color: [0, 0, 1],
+                        color: hexToRgb(annotationColor),
                     };
 
                     console.log('[FreeTextEditor] Created annotation:', annotationData);
@@ -469,7 +487,7 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
         };
 
         container.addEventListener('click', handleClick);
-    }, [pdfDocument, pageNumber, saveAnnotations]);
+    }, [pdfDocument, pageNumber, saveAnnotations, annotationColor]);
 
     /**
      * 启用图章编辑器
@@ -591,6 +609,10 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
                 onZoomIn={handleZoomIn}
                 onZoomOut={handleZoomOut}
                 scale={scale}
+                color={annotationColor}
+                onColorChange={setAnnotationColor}
+                thickness={annotationThickness}
+                onThicknessChange={setAnnotationThickness}
             />
 
             {/* 顶部导航栏 */}
