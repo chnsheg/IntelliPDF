@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FiMessageSquare, FiX, FiBookmark } from 'react-icons/fi';
 import { apiService } from '../services/api';
 import { useIsMobile } from '../hooks/useResponsive';
-import PDFViewerEnhanced from '../components/PDFViewerEnhanced';
+import { PDFViewerNative } from '../components/PDFViewerNative';
 import BookmarkPanel from '../components/BookmarkPanel';
 import clsx from 'clsx';
 
@@ -21,6 +21,7 @@ export default function DocumentViewerPage() {
     const [chatOpen, setChatOpen] = useState(!isMobile);
     const [bookmarkOpen, setBookmarkOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [immersiveMode, setImmersiveMode] = useState(true); // 默认沉浸式模式
 
     // Text selection state for bookmark creation
     const [selectedText, setSelectedText] = useState<string>('');
@@ -104,6 +105,20 @@ export default function DocumentViewerPage() {
         }));
     }, []);
 
+    // 沉浸式模式快捷键监听
+    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (e.key === 'F11') {
+                e.preventDefault();
+                setImmersiveMode(prev => !prev);
+            } else if (e.key === 'Escape' && immersiveMode) {
+                setImmersiveMode(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [immersiveMode]);
+
     // Listen for aiQuestion events dispatched by PDFViewerEnhanced
     useEffect(() => {
         const handleAIQuestion = (e: Event) => {
@@ -183,7 +198,10 @@ export default function DocumentViewerPage() {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between no-print">
+            <div className={clsx(
+                "bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between no-print transition-all duration-300",
+                immersiveMode && "opacity-0 h-0 overflow-hidden py-0"
+            )}>
                 <h1 className="text-lg md:text-xl font-semibold text-gray-900 truncate flex-1">
                     {document.filename}
                 </h1>
@@ -219,11 +237,22 @@ export default function DocumentViewerPage() {
                 </div>
             </div>
 
+            {/* 沉浸式模式切换按钮 */}
+            {immersiveMode && (
+                <button
+                    onClick={() => setImmersiveMode(false)}
+                    className="fixed top-2 right-2 z-50 bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-3 py-1 rounded text-sm transition-all"
+                    title="退出沉浸式模式 (ESC)"
+                >
+                    退出沉浸式 (ESC)
+                </button>
+            )}
+
             {/* Content: Bookmark + PDF + Chat */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Bookmark Panel */}
-                {bookmarkOpen && !isMobile && (
-                    <div className="w-80 flex-shrink-0 bg-white border-r border-gray-200 overflow-hidden">
+                {bookmarkOpen && !isMobile && !immersiveMode && (
+                    <div className="w-80 flex-shrink-0 bg-white border-r border-gray-200 overflow-hidden transition-all duration-300">
                         <BookmarkPanel
                             documentId={document.id}
                             onJumpTo={handleJumpToBookmark}
@@ -247,28 +276,49 @@ export default function DocumentViewerPage() {
                         isMobile && (chatOpen || bookmarkOpen) && 'hidden'
                     )}
                 >
+                    <PDFViewerNative
+                        pdfUrl={fileUrl}
+                        documentId={document.id}
+                        bookmarks={bookmarksData || []}
+                        onCreateBookmark={async (bookmarkData) => {
+                            try {
+                                await apiService.createBookmark(bookmarkData);
+                                await refetchBookmarks();
+                            } catch (error) {
+                                console.error('Failed to create bookmark:', error);
+                            }
+                        }}
+                        onJumpToBookmark={(bookmarkId) => {
+                            const bookmark = bookmarksData?.find((b: any) => b.id === bookmarkId);
+                            if (bookmark) {
+                                setCurrentPage(bookmark.page_number);
+                            }
+                        }}
+                    />
+                    {/* Legacy viewer with chunks support - commented out
                     <PDFViewerEnhanced
                         fileUrl={fileUrl}
                         documentId={document.id}
                         chunks={chunksData?.chunks || []}
                         bookmarks={bookmarksData || []}
                         currentPage={currentPage}
-                        onPageChange={(page) => {
+                        onPageChange={(page: number) => {
                             setCurrentPage(page);
                         }}
-                        onChunkClick={(chunkId) => {
+                        onChunkClick={(chunkId: string) => {
                             console.log('Chunk clicked:', chunkId);
                         }}
                         onTextSelected={handleTextSelected}
                         onBookmarkClick={handleBookmarkClick}
                     />
+                    */}
                 </div>
 
                 {/* Chat Panel */}
-                {chatOpen && (
+                {chatOpen && !immersiveMode && (
                     <div
                         className={clsx(
-                            'bg-white border-l border-gray-200 overflow-hidden',
+                            'bg-white border-l border-gray-200 overflow-hidden transition-all duration-300',
                             isMobile
                                 ? 'absolute inset-0 z-20'
                                 : 'w-96 flex-shrink-0'

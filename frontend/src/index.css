@@ -252,3 +252,13 @@
   pointer-events: none;
   cursor: default;
 }
+
+.saved-annotation {
+  position: absolute;
+  z-index: 15;
+}
+
+.saved-annotation.selected {
+  outline: 2px solid #0066ff;
+  outline-offset: 2px;
+}

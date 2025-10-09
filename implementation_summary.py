@@ -115,22 +115,22 @@ implementations = [
     "   - 使用 getTextContent() 获取文本",
     "   - 透明文本层支持选择",
     "   - 保留 PDF 原始布局",
-    
+
     "2. 画笔编辑器",
     "   - SVG path 实时绘制",
     "   - mousedown/mousemove/mouseup 事件",
     "   - 支持颜色和粗细",
-    
+
     "3. 标注存储",
     "   - annotationStorage.setValue(id, data)",
     "   - 批量序列化为 JSON",
     "   - POST /batch 保存到后端",
-    
+
     "4. 标注加载",
     "   - 从 annotationStorage.serializable 读取",
     "   - 按页码过滤",
     "   - 渲染为 SVG/HTML 元素",
-    
+
     "5. 选择和删除",
     "   - 点击事件选中标注",
     "   - 键盘事件删除标注",
