@@ -40,7 +40,6 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
     const editorLayerRef = useRef<HTMLDivElement>(null);
 
     const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
-    const [currentPage, setCurrentPage] = useState<PDFPageProxy | null>(null);
     const [pageNumber, setPageNumber] = useState<number>(1);
     const [numPages, setNumPages] = useState<number>(0);
     const [scale, setScale] = useState<number>(1.5);
@@ -82,52 +81,252 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
     }, [pdfUrl, loadAnnotations]);
 
     /**
-     * 渲染当前页面
+     * 渲染当前页面（Canvas + TextLayer + AnnotationEditorLayer）
      */
     useEffect(() => {
-        if (!pdfDocument || !canvasRef.current || !textLayerRef.current) return;
+        if (!pdfDocument || !canvasRef.current || !textLayerRef.current || !editorLayerRef.current) return;
+
+        let renderTask: any = null;
 
         const renderPage = async () => {
             try {
-                console.log('[PDFViewerNative] Rendering page:', pageNumber);
+                console.log('[PDFViewerNative] Rendering page:', pageNumber, 'editorMode:', editorMode);
 
                 const page = await pdfDocument.getPage(pageNumber);
-                setCurrentPage(page);
-
                 const viewport = page.getViewport({ scale });
 
-                // 设置 canvas 尺寸
+                // 1. 渲染 Canvas（PDF 内容）
                 const canvas = canvasRef.current!;
                 const context = canvas.getContext('2d')!;
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
 
-                // 渲染 PDF 页面
                 const renderContext = {
                     canvasContext: context,
                     viewport: viewport,
                 };
 
-                await page.render(renderContext).promise;
+                renderTask = page.render(renderContext);
+                await renderTask.promise;
 
-                // 渲染文本层
-                const textContent = await page.getTextContent();
-                const textLayerDiv = textLayerRef.current!;
-                textLayerDiv.innerHTML = ''; // 清空
-                textLayerDiv.style.width = `${viewport.width}px`;
-                textLayerDiv.style.height = `${viewport.height}px`;
+                // 2. 渲染文本层（用于文本选择）
+                await renderTextLayer(page, viewport);
 
-                // TODO: 使用 PDF.js 的 TextLayer API 渲染文本
-                // 这里需要引入 pdfjs-dist/web/pdf_viewer.js
+                // 3. 初始化标注编辑器层
+                await initializeEditorLayer(page, viewport);
 
                 console.log('[PDFViewerNative] Page rendered successfully');
-            } catch (error) {
-                console.error('[PDFViewerNative] Failed to render page:', error);
+            } catch (error: any) {
+                if (error?.name === 'RenderingCancelledException') {
+                    console.log('[PDFViewerNative] Rendering cancelled');
+                } else {
+                    console.error('[PDFViewerNative] Failed to render page:', error);
+                }
             }
         };
 
         renderPage();
-    }, [pdfDocument, pageNumber, scale]);
+
+        return () => {
+            if (renderTask) {
+                renderTask.cancel();
+            }
+        };
+    }, [pdfDocument, pageNumber, scale, editorMode]);
+
+    /**
+     * 渲染文本层（简化版）
+     * 注：完整的 TextLayer 需要 pdfjs-dist/web/pdf_viewer.css
+     */
+    const renderTextLayer = async (page: PDFPageProxy, viewport: any) => {
+        const textLayerDiv = textLayerRef.current!;
+        textLayerDiv.innerHTML = '';
+        textLayerDiv.style.width = `${viewport.width}px`;
+        textLayerDiv.style.height = `${viewport.height}px`;
+
+        const textContent = await page.getTextContent();
+
+        // 简化实现：只渲染文本用于选择
+        // 完整实现需要使用 pdfjs-dist/web/text_layer_builder.js
+        textContent.items.forEach((item: any) => {
+            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+            const angle = Math.atan2(tx[1], tx[0]);
+            const style = textContent.styles[item.fontName];
+            
+            const textDiv = document.createElement('span');
+            textDiv.textContent = item.str;
+            textDiv.style.position = 'absolute';
+            textDiv.style.left = `${tx[4]}px`;
+            textDiv.style.top = `${tx[5]}px`;
+            textDiv.style.fontSize = `${Math.abs(tx[0])}px`;
+            textDiv.style.fontFamily = style?.fontFamily || 'sans-serif';
+            textDiv.style.transform = `rotate(${angle}rad)`;
+            textDiv.style.transformOrigin = '0 0';
+            textDiv.style.whiteSpace = 'pre';
+            textDiv.style.color = 'transparent'; // 透明文本，但可选择
+            textDiv.style.userSelect = 'text';
+
+            textLayerDiv.appendChild(textDiv);
+        });
+    };
+
+    /**
+     * 初始化标注编辑器层（核心功能）
+     */
+    const initializeEditorLayer = useCallback(async (_page: PDFPageProxy, viewport: any) => {
+        const editorLayerDiv = editorLayerRef.current!;
+        editorLayerDiv.innerHTML = '';
+        editorLayerDiv.style.width = `${viewport.width}px`;
+        editorLayerDiv.style.height = `${viewport.height}px`;
+
+        // 创建编辑器容器
+        const editorContainer = document.createElement('div');
+        editorContainer.className = 'annotationEditorLayer';
+        editorContainer.style.position = 'absolute';
+        editorContainer.style.top = '0';
+        editorContainer.style.left = '0';
+        editorContainer.style.width = '100%';
+        editorContainer.style.height = '100%';
+
+        // 根据当前模式设置编辑器行为
+        if (editorMode === AnnotationEditorType.INK) {
+            enableInkEditor(editorContainer);
+        } else if (editorMode === AnnotationEditorType.FREETEXT) {
+            enableFreeTextEditor(editorContainer);
+        } else {
+            // 选择模式 - 禁用编辑器
+            editorContainer.classList.add('disabled');
+        }
+
+        editorLayerDiv.appendChild(editorContainer);
+    }, [editorMode, pageNumber, pdfDocument, saveAnnotations]);
+
+    /**
+     * 启用画笔编辑器
+     */
+    const enableInkEditor = useCallback((container: HTMLElement) => {
+        let isDrawing = false;
+        let currentPath: { x: number; y: number }[] = [];
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.position = 'absolute';
+        svg.style.pointerEvents = 'auto';
+        container.appendChild(svg);
+
+        const handleMouseDown = (e: MouseEvent) => {
+            isDrawing = true;
+            const rect = container.getBoundingClientRect();
+            currentPath = [{ x: e.clientX - rect.left, y: e.clientY - rect.top }];
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDrawing) return;
+            const rect = container.getBoundingClientRect();
+            currentPath.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+
+            // 实时绘制路径
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const d = `M ${currentPath.map(p => `${p.x},${p.y}`).join(' L ')}`;
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', '#ff0000');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            svg.innerHTML = '';
+            svg.appendChild(path);
+        };
+
+        const handleMouseUp = async () => {
+            if (isDrawing && currentPath.length > 2) {
+                isDrawing = false;
+                
+                // 保存标注到 PDF.js annotationStorage
+                const annotationData = {
+                    annotationType: AnnotationEditorType.INK,
+                    pageIndex: pageNumber - 1,
+                    paths: [currentPath],
+                    color: [1, 0, 0], // RGB
+                    thickness: 2,
+                };
+
+                console.log('[InkEditor] Created annotation:', annotationData);
+
+                // 保存到 annotationStorage
+                if (pdfDocument?.annotationStorage) {
+                    const id = `ink_${Date.now()}_${Math.random()}`;
+                    pdfDocument.annotationStorage.setValue(id, annotationData);
+                    saveAnnotations(pdfDocument.annotationStorage.serializable);
+                }
+
+                currentPath = [];
+                svg.innerHTML = '';
+            }
+        };
+
+        container.addEventListener('mousedown', handleMouseDown);
+        container.addEventListener('mousemove', handleMouseMove);
+        container.addEventListener('mouseup', handleMouseUp);
+    }, [pdfDocument, pageNumber, saveAnnotations]);
+
+    /**
+     * 启用文本编辑器
+     */
+    const enableFreeTextEditor = useCallback((container: HTMLElement) => {
+        const handleClick = (e: MouseEvent) => {
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 创建文本输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = '输入文本...';
+            input.style.position = 'absolute';
+            input.style.left = `${x}px`;
+            input.style.top = `${y}px`;
+            input.style.fontSize = '16px';
+            input.style.padding = '4px 8px';
+            input.style.border = '1px solid #0000ff';
+            input.style.borderRadius = '4px';
+            input.style.backgroundColor = '#ffffff';
+            input.style.zIndex = '1000';
+
+            container.appendChild(input);
+            input.focus();
+
+            const handleBlur = async () => {
+                const text = input.value.trim();
+                if (text) {
+                    // 保存标注
+                    const annotationData = {
+                        annotationType: AnnotationEditorType.FREETEXT,
+                        pageIndex: pageNumber - 1,
+                        rect: [x, y, x + 200, y + 30],
+                        contents: text,
+                        color: [0, 0, 1],
+                    };
+
+                    console.log('[FreeTextEditor] Created annotation:', annotationData);
+
+                    if (pdfDocument?.annotationStorage) {
+                        const id = `freetext_${Date.now()}_${Math.random()}`;
+                        pdfDocument.annotationStorage.setValue(id, annotationData);
+                        saveAnnotations(pdfDocument.annotationStorage.serializable);
+                    }
+                }
+                input.remove();
+            };
+
+            input.addEventListener('blur', handleBlur);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        };
+
+        container.addEventListener('click', handleClick);
+    }, [pdfDocument, pageNumber, saveAnnotations]);
 
     /**
      * 监听标注变化
@@ -161,14 +360,14 @@ export const PDFViewerNative: React.FC<PDFViewerNativeProps> = ({
     }, [pdfDocument, saveAnnotations]);
 
     /**
-     * 处理工具变化
+     * 处理工具变化 - 重新初始化编辑器层
      */
     const handleToolChange = useCallback((mode: number) => {
         console.log('[PDFViewerNative] Tool changed:', mode);
         setEditorMode(mode);
-
-        // TODO: 实际应用编辑器模式
-        // 需要使用 PDF.js 的 AnnotationEditorLayer API
+        
+        // 编辑器模式变化后，需要重新渲染当前页以应用新模式
+        // useEffect 会自动触发重新渲染
     }, []);
 
     /**

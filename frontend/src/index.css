@@ -205,3 +205,50 @@
    - DraggableAnnotation (z=30): 标注交互
    - ShapeTool/NoteTool (z=50): 绘制工具
 */
+
+/* PDF.js Native Annotation Styles */
+.textLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1.0;
+  z-index: 5;
+}
+
+.textLayer > span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  user-select: text;
+  transform-origin: 0% 0%;
+}
+
+.annotationLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.annotationEditorLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  cursor: crosshair;
+}
+
+.annotationEditorLayer.disabled {
+  pointer-events: none;
+  cursor: default;
+}
