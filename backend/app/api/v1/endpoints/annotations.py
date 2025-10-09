@@ -188,3 +188,105 @@ async def delete_annotation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+
+@router.post(
+    "/batch",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+)
+async def batch_create_annotations(
+    request: dict,
+    repo: AnnotationRepository = Depends(get_annotation_repo),
+):
+    """
+    批量创建标注（用于 PDF.js）
+    
+    请求格式:
+    {
+        "annotations": [
+            {
+                "document_id": "uuid",
+                "user_id": "user_id",
+                "annotation_type": "pdfjs",
+                "page_number": 1,
+                "data": { "pdfjs_data": {...} },
+                "tags": []
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        annotations_data = request.get('annotations', [])
+        if not annotations_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No annotations provided"
+            )
+
+        created_count = 0
+        from ....models.db import AnnotationModel
+
+        for ann_data in annotations_data:
+            model = AnnotationModel(
+                document_id=ann_data['document_id'],
+                user_id=ann_data['user_id'],
+                annotation_type=ann_data.get('annotation_type', 'pdfjs'),
+                page_number=ann_data['page_number'],
+                data=ann_data['data'],
+                content=ann_data.get('content'),
+                color=ann_data.get('color'),
+                tags=ann_data.get('tags', []),
+                user_name=ann_data.get('user_name'),
+            )
+            await repo.create(model)
+            created_count += 1
+
+        logger.info(f"Batch created {created_count} annotations")
+        return {"status": "success", "created": created_count}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to batch create annotations: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_annotations_by_document(
+    document_id: str,
+    repo: AnnotationRepository = Depends(get_annotation_repo),
+):
+    """删除文档的所有标注"""
+    try:
+        # 查询该文档的所有标注
+        from ....models.db import AnnotationModel
+        from sqlalchemy import select
+
+        result = await repo.db.execute(
+            select(AnnotationModel).where(AnnotationModel.document_id == document_id)
+        )
+        annotations = result.scalars().all()
+
+        # 删除所有标注
+        deleted_count = 0
+        for ann in annotations:
+            await repo.delete(ann.id)
+            deleted_count += 1
+
+        logger.info(f"Deleted {deleted_count} annotations for document {document_id}")
+        return None
+
+    except Exception as e:
+        logger.error(f"Failed to delete annotations: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
