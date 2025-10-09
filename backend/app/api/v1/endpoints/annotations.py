@@ -292,14 +292,11 @@ async def delete_annotations_by_document(
 ):
     """删除文档的所有标注"""
     try:
-        # 查询该文档的所有标注
-        from ....models.db import AnnotationModel
-        from sqlalchemy import select
-
-        result = await repo.db.execute(
-            select(AnnotationModel).where(AnnotationModel.document_id == document_id)
+        # 使用 repository 的 get_by_document 方法
+        annotations, total = await repo.get_by_document(
+            document_id=document_id,
+            limit=10000  # 一次性获取所有
         )
-        annotations = result.scalars().all()
 
         # 删除所有标注
         deleted_count = 0

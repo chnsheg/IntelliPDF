@@ -121,7 +121,7 @@ def test_get_annotations_by_document(document_id: str):
     
     try:
         response = requests.get(
-            f"{BASE_URL}/annotations/documents/{document_id}/annotations",
+            f"{BASE_URL}/annotations/documents/{document_id}",
             headers=get_auth_headers(),
             timeout=10
         )
@@ -129,10 +129,17 @@ def test_get_annotations_by_document(document_id: str):
         print(f"状态码: {response.status_code}")
         
         if response.status_code == 200:
-            annotations = response.json()
+            response_data = response.json()
+            # Response might be paginated or a list
+            if isinstance(response_data, dict):
+                annotations = response_data.get('annotations', [])
+            else:
+                annotations = response_data
+            
             print(f"✅ 找到 {len(annotations)} 条标注")
-            for i, ann in enumerate(annotations, 1):
-                print(f"  [{i}] 类型={ann.get('annotation_type')}, 页码={ann.get('page_number')}")
+            for i, ann in enumerate(annotations[:5], 1):  # Show first 5
+                if isinstance(ann, dict):
+                    print(f"  [{i}] 类型={ann.get('annotation_type')}, 页码={ann.get('page_number')}")
             return len(annotations)
         else:
             print(f"❌ 获取失败: {response.text}")
