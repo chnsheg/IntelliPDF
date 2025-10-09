@@ -6,8 +6,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FiMousePointer, FiEdit3, FiType, FiImage, FiZoomIn, FiZoomOut, FiSquare, FiCircle, FiMove, FiTrash2, FiSlash } from 'react-icons/fi';
-import { BsArrowUpRight, BsPencilSquare, BsPentagon } from 'react-icons/bs';
+import { BsArrowUpRight, BsPencilSquare } from 'react-icons/bs';
 import { MdGesture } from 'react-icons/md';
+import { TbLasso } from 'react-icons/tb';
 import clsx from 'clsx';
 
 interface PDFAnnotationToolbarProps {
@@ -301,7 +302,7 @@ export const PDFAnnotationToolbar: React.FC<PDFAnnotationToolbarProps> = ({
                         )}
                         title="套索选择"
                     >
-                        <BsPentagon size={18} />
+                        <TbLasso size={18} />
                         <span>套索</span>
                     </button>
 
