@@ -173,3 +173,35 @@
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* ========================================
+   PDF.js Layer Z-Index Control
+   ======================================== */
+
+/* PDF.js 的文本层和标注层 z-index 控制 */
+.react-pdf__Page__textContent {
+  /* 文本层：允许文本选择，但 z-index 低于标注交互层 */
+  z-index: 5 !important;
+  pointer-events: auto !important;
+}
+
+.react-pdf__Page__annotations {
+  /* PDF.js 原生标注层：禁用以使用我们的自定义标注系统 */
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+.react-pdf__Page__canvas {
+  /* Canvas 层：只用于渲染 */
+  z-index: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 我们的自定义标注层优先级：
+   - Canvas (z=0): PDF 渲染
+   - PDF.js annotations (z=1): 禁用
+   - PDF.js textLayer (z=5): 文本选择
+   - AnnotationCanvas (z=10): 标注渲染（pointer-events: none）
+   - DraggableAnnotation (z=30): 标注交互
+   - ShapeTool/NoteTool (z=50): 绘制工具
+*/

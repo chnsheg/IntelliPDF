@@ -65,31 +65,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
     const [resizeStart, setResizeStart] = useState<Geometry | null>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
 
-    /**
-     * 检查点击是否命中标注
-     */
-    const hitTest = useCallback((x: number, y: number, annotation: Annotation): boolean => {
-        const { geometry } = annotation;
-        
-        // 跳过没有 geometry 的标注（例如便笺）
-        if (!geometry) {
-            return false;
-        }
-        
-        // 转换为屏幕坐标
-        const viewport = pdfPage.getViewport({ scale });
-        const screenX = geometry.x * scale;
-        const screenY = (viewport.height / scale - geometry.y - geometry.height) * scale;
-        const screenWidth = geometry.width * scale;
-        const screenHeight = geometry.height * scale;
-
-        return (
-            x >= screenX &&
-            x <= screenX + screenWidth &&
-            y >= screenY &&
-            y <= screenY + screenHeight
-        );
-    }, [pdfPage, scale]);
+    // hitTest 已被热区 div 替代，不再需要
 
     /**
      * 检查是否点击了调整句柄
@@ -118,68 +94,7 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         return null;
     }, [pdfPage, scale]);
 
-    /**
-     * 处理鼠标按下
-     */
-    const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-        console.log('DraggableAnnotation: mouseDown event', { 
-            annotationsCount: annotations.length, 
-            hasGeometry: annotations.filter(a => a.geometry).length 
-        });
-
-        if (!overlayRef.current) return;
-
-        const rect = overlayRef.current.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        
-        console.log('Click position:', { x, y });
-
-        // 检查是否点击了选中的标注
-        if (selectedAnnotationId) {
-            const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId);
-            if (selectedAnnotation && selectedAnnotation.geometry) {
-                // 检查是否点击了调整句柄
-                const handle = getResizeHandle(x, y, selectedAnnotation.geometry);
-                if (handle) {
-                    setIsResizing(true);
-                    setResizeHandle(handle);
-                    setDragStartPos({ x, y });
-                    setResizeStart(selectedAnnotation.geometry);
-                    event.stopPropagation();
-                    return;
-                }
-
-                // 检查是否点击了标注本身
-                if (hitTest(x, y, selectedAnnotation)) {
-                    // 开始拖拽
-                    setIsDragging(true);
-                    setDragStartPos({ x, y });
-                    setDragOffset({ x: 0, y: 0 });
-                    event.stopPropagation();
-                    return;
-                }
-            }
-        }
-
-        // 检查是否点击了其他标注
-        console.log('Checking annotations for hit:', annotations.length);
-        for (let i = annotations.length - 1; i >= 0; i--) {
-            const annotation = annotations[i];
-            const hit = hitTest(x, y, annotation);
-            console.log(`Annotation ${annotation.id}: hit=${hit}, hasGeometry=${!!annotation.geometry}`);
-            if (hit) {
-                console.log('Annotation selected:', annotation.id);
-                onSelect(annotation.id);
-                event.stopPropagation();
-                return;
-            }
-        }
-
-        // 没有命中任何标注，取消选择
-        console.log('No annotation hit, deselecting');
-        onSelect(null);
-    }, [annotations, selectedAnnotationId, hitTest, getResizeHandle, onSelect]);
+    // handleMouseDown 已被内联到渲染逻辑中，不再需要独立的回调
 
     /**
      * 处理鼠标移动
@@ -459,15 +374,78 @@ export const DraggableAnnotation: React.FC<DraggableAnnotationPropsExtended> = (
         }
     }, [isDragging, selectedAnnotationId]);
 
+    // ⚠️ 关键修复：根据状态动态渲染覆盖层
+    // 拖拽/调整大小时：全屏覆盖层捕获所有鼠标事件
+    // 平时：只渲染标注区域的可点击热区，不阻止文本选择
+    
+    if (isDragging || isResizing) {
+        // 拖拽/调整大小模式：全屏捕获
+        return (
+            <div
+                ref={overlayRef}
+                className="absolute inset-0 z-30 pointer-events-auto"
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+            >
+                {renderSelectionBox()}
+            </div>
+        );
+    }
+
+    // 正常模式：只在标注位置渲染热区
     return (
-        <div
-            ref={overlayRef}
-            className="absolute inset-0 z-30 pointer-events-auto"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-        >
+        <div className="absolute inset-0 z-30 pointer-events-none">
+            {/* 为每个标注渲染独立的点击热区 */}
+            {annotations.map(annotation => {
+                if (!annotation.geometry) return null;
+                
+                const viewport = pdfPage.getViewport({ scale });
+                const screenX = annotation.geometry.x * scale;
+                const screenY = (viewport.height / scale - annotation.geometry.y - annotation.geometry.height) * scale;
+                const screenWidth = annotation.geometry.width * scale;
+                const screenHeight = annotation.geometry.height * scale;
+                
+                return (
+                    <div
+                        key={annotation.id}
+                        className="absolute pointer-events-auto cursor-pointer"
+                        style={{
+                            left: screenX,
+                            top: screenY,
+                            width: screenWidth,
+                            height: screenHeight,
+                        }}
+                        onMouseDown={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left + screenX;
+                            const y = e.clientY - rect.top + screenY;
+                            
+                            // 检查是否点击了调整句柄
+                            if (annotation.id === selectedAnnotationId && annotation.geometry) {
+                                const handle = getResizeHandle(x, y, annotation.geometry);
+                                if (handle) {
+                                    setIsResizing(true);
+                                    setResizeHandle(handle);
+                                    setDragStartPos({ x, y });
+                                    setResizeStart(annotation.geometry);
+                                    e.stopPropagation();
+                                    return;
+                                }
+                            }
+                            
+                            // 选中标注
+                            onSelect(annotation.id);
+                            setIsDragging(true);
+                            setDragStartPos({ x, y });
+                            setDragOffset({ x: 0, y: 0 });
+                            e.stopPropagation();
+                        }}
+                    />
+                );
+            })}
+            
+            {/* 渲染选中标注的边框和句柄 */}
             {renderSelectionBox()}
         </div>
     );
