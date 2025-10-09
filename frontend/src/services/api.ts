@@ -388,6 +388,22 @@ class ApiService {
         const { data } = await this.client.delete(`/annotations/${annotationId}`);
         return data as any;
     }
+
+    /**
+     * 批量创建标注（用于 PDF.js）
+     */
+    async batchCreateAnnotations(annotations: any[]) {
+        const { data } = await this.client.post('/annotations/batch', { annotations });
+        return data as any;
+    }
+
+    /**
+     * 删除文档的所有标注
+     */
+    async deleteAnnotationsByDocument(documentId: string) {
+        const { data } = await this.client.delete(`/annotations/documents/${documentId}`);
+        return data as any;
+    }
 }
 
 export const apiService = new ApiService();

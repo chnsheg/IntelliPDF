@@ -1,32 +1,32 @@
 /**
- * PDF Viewer - Simplified Version
+ * PDF Viewer - Simplified Version with Native PDF.js API
  * 
- * 使用 PDF.js 原生 AnnotationEditorLayer 实现标注功能
- * 移除所有自定义 Canvas 标注代码
+ * 直接使用 PDF.js 的 AnnotationEditorLayer API
+ * 不依赖 react-pdf 的高级功能，完全控制标注编辑
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
+import * as pdfjsLib from 'pdfjs-dist';
+import 'pdfjs-dist/web/pdf_viewer.css';
 import { PDFAnnotationToolbar } from './PDFAnnotationToolbar';
 import { usePDFAnnotations } from '../hooks/usePDFAnnotations';
 
 // 配置 PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface PDFViewerSimplifiedProps {
     documentId: string;
     pdfUrl: string;
 }
 
-// PDF.js AnnotationEditorMode 枚举
-const AnnotationEditorMode = {
+// PDF.js AnnotationEditorType 枚举
+const AnnotationEditorType = {
+    DISABLE: -1,    // 禁用
     NONE: 0,        // 无编辑
     FREETEXT: 3,    // 文本框
-    INK: 15,        // 画笔
-    STAMP: 13,      // 图章
     HIGHLIGHT: 9,   // 高亮（实验性）
+    STAMP: 13,      // 图章
+    INK: 15,        // 画笔
 };
 
 export const PDFViewerSimplified: React.FC<PDFViewerSimplifiedProps> = ({
